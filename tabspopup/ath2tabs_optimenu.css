@@ -1,0 +1,85 @@
+/* OptiMenu styles */
+
+.opti_menuitem {
+  margin: 0;
+  height: 18px;
+  min-height: 18px;
+  max-height: 18px;
+  float: left;
+  clear: both;
+  width: 300px;
+}
+
+.opti_menuicon1 {
+  width: 12px;
+  height: 12px;
+  float: left;
+  margin: 3px 0 0 3px;
+}
+
+.opti_menutext {
+  overflow: hidden;
+  white-space: nowrap;
+  float: left;
+  margin: 4px 0 0 4px;
+  cursor: default;
+  font-family: "Helvetica";
+  font-size: 11.5px;
+}
+
+.opti_menuicon2 {
+  width: 12px;
+  height: 12px;
+  float: left;
+  margin: 4px 0 0 5px;
+}
+
+.opti_menuitem_icon1_hide > .opti_menuicon1 {
+  display: none;
+  margin: 0;
+}
+.opti_menuitem_icon2_hide > .opti_menuicon2 {
+  display: none;
+  margin: 0;
+}
+
+.opti_menuitem_icon1_hide > .opti_menutext {
+  margin-left: 6px;
+}
+
+#opti_dragfeedback {
+  display: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 20px;
+  padding: 0 10px 0 10px;
+  background-color: #eee;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-family: "Helvetica";
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.opti_menuitemselected {
+  background: linear-gradient(#66f, #44f);
+  color: #fff;
+}
+
+.opti_menuprespacer {
+  float: left;
+  clear: both;
+  width: 300px;
+}
+
+.opti_menupostspacer {
+  float: left;
+  clear: both;
+  width: 300px;
+}
+
+.opti_menu_outer_container:not([opti_ismenuitemselected]) > div:hover {
+  background: linear-gradient(#66f, #44f);
+  color: #fff;
+}

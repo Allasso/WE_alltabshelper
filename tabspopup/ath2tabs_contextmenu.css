@@ -1,0 +1,20 @@
+/* OptiMenu styles */
+
+.contextmenu_outer_container {
+  position: fixed;
+  min-width: 200px;
+  min-height: 50px;
+  background-color: #eee;
+  border: solid 1px #777;
+  border-radius: 4px;
+  display: none;
+  z-index: 100000;
+  font-family: "Helvetica";
+  font-size: 14px;
+  padding: 7px 5px 5px 10px;
+}
+
+.contextmenu_outer_container.contextmenu_display {
+  display: block;
+}
+
