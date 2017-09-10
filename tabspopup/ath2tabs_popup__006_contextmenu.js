@@ -24,55 +24,36 @@ ContextMenu.prototype = {
       this.window.document.head.appendChild(style1);
       this.dynamicCSSDisplayPosition = style1
     }
-
-    this.addItem("Help me !!!");
   },
 
   createMenu() {
     this.menu = this.document.createElement("div");
     this.menu.className = "contextmenu_outer_container";
     this.document.body.appendChild(this.menu);
- },
+  },
 
   display(params) {
     if (!params) {
       this.menu.classList.remove("contextmenu_display");
+      this.callContextmenuHidingListeners();
       return;
     }
 
-    let { x, y } = params;
-
-    let _this = this;
-    this.window.addEventListener("resize", function displayContexMenuResizeListener() {
-      //_this.window.removeEventListener("resize", displayContexMenuResizeListener);
-      dump("display : x : "+x+"    y : "+y+"    "+_this.window.innerWidth+"    "+_this.window.outerWidth+"    "+_this.menu.clientWidth+"    "+_this.menu.clientHeight+"\n");
-    });
-dump("display : x : "+x+"    y : "+y+"    "+_this.window.innerWidth+"    "+_this.window.outerWidth+"    "+_this.menu.clientWidth+"    "+_this.menu.clientHeight+"\n");
-
-// create an observer instance
-var observer = new MutationObserver(function(mutations) {
-  mutations.forEach(function(mutation) {
-    dump(" >> "+mutation.type+"\n");
-  });
-});
-
-// configuration of the observer:
-var config = { attributes: true, childList: true, characterData: true };
-
-// pass in the target node, as well as the observer options
-observer.observe(this.document.body, config);
-
     this.loadContextMenu();
 
+    this.callContextmenuShowingListeners();
 
-setTimeout(() => {
-//dump("display : x : "+x+"    y : "+y+"    "+this.window.innerWidth+"    "+this.window.outerWidth+"    "+this.menu.clientWidth+"    "+this.menu.clientHeight+"\n");
-}, 1000);
+    let { x, y } = params;
+
+    this.menu.classList.add("contextmenu_display");
+
+    let mRect = this.menu.getBoundingClientRect();
+    x = Math.min(x, this.window.innerWidth - mRect.width);
+    y = Math.min(y, this.window.innerHeight - mRect.height);
 
     let innerHTML = ".contextmenu_outer_container { left: "+x+"px; top: "+y+"px }\n";
 
     this.dynamicCSSDisplayPosition.innerHTML = innerHTML;
-    this.menu.classList.add("contextmenu_display");
   },
 
   loadContextMenu() {
@@ -81,24 +62,112 @@ setTimeout(() => {
     let frag = doc.createDocumentFragment();
     menu.innerHTML = "";
 
-dump("loadContextMenu\n");
-
     for (let item of this.items) {
+      let { text, id, checkbox } = item;
       let menuitem = doc.createElement("div");
-      let textCont = doc.createElement("div");
-      textCont.textContent = item.text;
-      menuitem.appendChild(textCont);
+
+      if (item.menuseparator) {
+        menuitem.className = "context_menu_menuseparator";
+      } else {
+        let textCont = doc.createElement("div");
+        textCont.textContent = text;
+        if (id) {
+          menuitem.id = id;
+        }
+        menuitem.className = "context_menu_menuitem";
+        textCont.className = "context_menu_textcontainer";
+        menuitem.appendChild(textCont);
+      }
       frag.appendChild(menuitem);
     }
 
     menu.appendChild(frag);
   },
 
-  addItem(text, id, checkbox) {
-    this.items.push({ text, id, checkbox });
+  addItems(items) {
+    this.items = this.items.concat(items);
   },
 
   removeItem() {
+  },
+
+  contextmenuMousedownListeners: [],
+  contextmenuMousedownListenersMap: new WeakMap(),
+  contextmenuShowingListeners: [],
+  contextmenuShowingListenersMap: new WeakMap(),
+  contextmenuHidingListeners: [],
+  contextmenuHidingListenersMap: new WeakMap(),
+
+  addContextmenuMousedownListener(callback) {
+    if (this.contextmenuMousedownListenersMap[callback]) {
+      return;
+    }
+    this.contextmenuMousedownListenersMap[callback];
+    this.contextmenuMousedownListeners.push(callback);
+  },
+
+  removeContextmenuMousedownListener(callback) {
+    if (this.contextmenuMousedownListenersMap[callback]) {
+      return;
+    }
+  },
+
+  callContextmenuMousedownListeners(e) {
+    for (let listener of this.contextmenuMousedownListeners) {
+      listener(e);
+    }
+  },
+
+  addContextmenuShowingListener(callback) {
+    if (this.contextmenuShowingListenersMap[callback]) {
+      return;
+    }
+    this.contextmenuShowingListenersMap[callback];
+    this.contextmenuShowingListeners.push(callback);
+  },
+
+  removeContextmenuShowingListener(callback) {
+    if (this.contextmenuShowingListenersMap[callback]) {
+      return;
+    }
+  },
+
+  callContextmenuShowingListeners(e) {
+    for (let listener of this.contextmenuShowingListeners) {
+      listener(e);
+    }
+  },
+
+  addContextmenuHidingListener(callback) {
+    if (this.contextmenuHidingListenersMap[callback]) {
+      return;
+    }
+    this.contextmenuHidingListenersMap[callback];
+    this.contextmenuHidingListeners.push(callback);
+  },
+
+  removeContextmenuHidingListener(callback) {
+    if (this.contextmenuHidingListenersMap[callback]) {
+      return;
+    }
+  },
+
+  callContextmenuHidingListeners(e) {
+    for (let listener of this.contextmenuHidingListeners) {
+      listener(e);
+    }
+  },
+
+  setDisabled(ids) {
+    let nodes = this.menu.childNodes;
+    for (let i = 0; i < nodes.length; i++) {
+      let node = nodes[i];
+      if (ids[node.id]) {
+        node.classList.add("disabled");
+      } else {
+        node.classList.remove("disabled");
+      }
+    }
   },
 
   mouseupInhibit: false,
@@ -111,10 +180,19 @@ dump("loadContextMenu\n");
       case 'mousedown':
         if (e.button == 0) {
           if (this.menu.classList.contains("contextmenu_display")) {
-            this.display();
             e.stopImmediatePropagation();
             this.mouseupInhibit = true;
             this.clickInhibit = true;
+
+            // Always return the menuitem itself as the target
+            let menuitem = target.classList.contains("context_menu_menuitem") ? target :
+                           target.classList.contains("context_menu_textcontainer") ? target.parentNode :
+                           null;
+            if (menuitem && !menuitem.classList.contains("disabled")) {
+              this.callContextmenuMousedownListeners(menuitem);
+            }
+            // Hide menu last.
+            this.display();
           }
         }
         break;
@@ -132,6 +210,7 @@ dump("loadContextMenu\n");
         break;
       case 'contextmenu':
         this.display({ x: e.clientX, y: e.clientY });
+        e.preventDefault();
         break;
     }
   },

@@ -1,29 +1,39 @@
-html {
+html, body {
+  height: 100%;
+  width: 100%;
   margin: 0;
-  padding: 0;
-}
-
-body {
-  max-height: 1100px;
+  box-sizing: border-box;
   overflow: hidden;
-  margin: 0;
-  padding: 0;
-}
-
-a {
-  margin: 10px;
-  display: inline-block;
+  background-color: #F4F7F8;
 }
 
 #buttons {
-  width: 100%;
   margin-top: 10px;
   text-align: center;
   font-family: "Helvetica";
   font-size: 13px;
   cursor: default;
-  float: left;
-  clear: both;
+}
+
+#searchinput {
+  width: 95%;
+  /* margin: sidebar: 7x auto; browserAction: 7px auto 7px 5px */
+  margin: 7px auto 7px 5px;
+}
+
+#tabsmenucontainer {
+  margin: 0 0 10px 0;
+  padding: 0 0 0 0;
+  width: 100%;
+  /* Only needed for browserAction popup, and must be <= the maximum length
+     the popup will open.  Maybe could calculate that dynamically by first
+     setting height to a very large number, grabbing the outer height, then
+     setting to that. */
+  height: 535px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  font-size: 13px;
+  font-family: "Helvetica";
 }
 
 #buttons > span:hover {
@@ -46,42 +56,16 @@ a {
   font-weight: bold;
 }
 
-#messagecontainer {
-  min-height: 7px;
-  width: 300px;
-  font-family: "Helvetica";
-  font-size: 11.5px;
-  text-align: center;
-  float: left;
-  clear: both;
-}
-
-#searchinput {
-  width: 290px;
-  margin-top: 7px;
-  margin-bottom: 7px;
-  margin-left: 7px;
-  float: left;
-  clear: both;
-}
-
 .menu_message {
   margin: 3px 10px 7px 10px;
   padding: 4px 0 4px 0;
   /* border-top: solid 1px #bbb; */
   border-bottom: solid 1px #bbb;
   display: none;
-}
-
-#tabsmenucontainer {
-  margin: 0 0 10px 0;
-  padding: 0 0 0 0;
-  float: left;
-  clear: both;
-  width: 100%;
-  height: 535px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  min-height: 7px;
+  font-family: "Helvetica";
+  font-size: 11.5px;
+  text-align: center;
 }
 
 #tabsmenucontainer > .divideritem {
@@ -92,11 +76,6 @@ a {
   font-weight: bold;
   font-size: 13px;
   margin-top: 2px;
-}
-
-.opti_menuicon2 {
-  width: 10px !important;
-  height: 10px !important;
 }
 
 .searchresult {
@@ -111,11 +90,6 @@ a {
   padding-top: 4px;
 }
 
-.opti_menu_outer_container:not([opti_ismenuitemselected]) > .searchresult:hover {
-  background: #7BCCB5 !important;
-  color: #8C001A !important;
-}
-
 .searchresultkeyword {
   font-weight: bold;
 }
@@ -123,6 +97,8 @@ a {
 /* User defined OptiMenu styles */
 
 .opti_menuicon2 {
+  width: 10px !important;
+  height: 10px !important;
   cursor: pointer;
   opacity: 0.65;
 }
@@ -131,18 +107,23 @@ a {
   border-bottom: 3px solid red;
 }
 
-/* search results expand and collapse */
+.opti_menu_outer_container:not(.opti_ismenuitemselected) > .searchresult:hover {
+  background: #7BCCB5 !important;
+  color: #8C001A !important;
+}
+
+/* search results expand and collapse (OptiMenu) */
 
 .searchresultmenuitem > .opti_menuicon1 {
   background-image: url('../icons/tree_half_arrows_blue_white_10x10px_down_centered_12x12_bg.png');
   background-repeat: no-repeat;
   width: 12px;
   height: 12px;
-  background-position: 0 0;
+  background-position: -12px 0;
 }
 
 .searchresultmenuitem:hover > .opti_menuicon1 {
-  background-position: 0 -12px;
+  background-position: -12px -12px;
 }
 
 .searchresultmenuitem.searchresults_collapse_icon > .opti_menuicon1 {

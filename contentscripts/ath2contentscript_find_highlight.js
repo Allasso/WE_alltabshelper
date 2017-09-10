@@ -17,6 +17,9 @@ let textRetriever = {
   },
 
   getTabContentText() {
+    // Don't search for text that is a result of custom highlighting overlay.
+    localHighlighter.clearCustomHighlighting();
+
     let frames = this.getFrames(window);
     let text = "";
 
@@ -194,7 +197,6 @@ let localHighlighter = {
     for (let div of this.highlighterDivs) {
       div.remove();
     }
-    highlighters = [];
   },
 
   scrollIntoView(rectList) {
@@ -244,6 +246,8 @@ browser.runtime.onMessage.addListener(
     let topic = request.topic;
     let tabId = request.tabId;
     if (topic == "alltabshelper:getTabContentText") {
+//dump("content script message listener 1 : \n");
+//dump("content script message listener 2 : "+textRetriever.getTabContentText()+"\n");
       sendResponse({ tabId: tabId, contentText: textRetriever.getTabContentText() });
     }
     if (topic == "alltabshelper:getResultsContext") {

@@ -1,0 +1,40 @@
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  background-color: #F4F7F8;
+}
+
+#buttons {
+  margin-top: 10px;
+  text-align: center;
+  font-family: "Helvetica";
+  font-size: 13px;
+  cursor: default;
+}
+
+#searchinput {
+  width: 95%;
+  /* margin: sidebar: 7x auto; browserAction: 7px auto 7px 5px */
+  margin: 7px auto 7px 5px;
+}
+
+#tabsmenucontainer {
+  margin: 0 0 10px 0;
+  padding: 0 0 0 0;
+  float: left;
+  clear: both;
+  width: 100%;
+  /* Only needed for browserAction popup, and must be <= the maximum length
+     the popup will open.  Maybe could calculate that dynamically by first
+     setting height to a very large number, grabbing the outer height, then
+     setting to that. */
+  height: 535px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  font-size: 13px;
+  font-family: "Helvetica";
+}
+

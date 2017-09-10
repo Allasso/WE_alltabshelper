@@ -1,8 +1,8 @@
-function OptiMenu(menuCntnr, win) {
+function OptiMenu(menuCntnr, win, selectedPlusHover) {
   this.window = win;
   this.menuCntnr = menuCntnr;
 
-  this.init();
+  this.init(selectedPlusHover);
 }
 
 OptiMenu.prototype = {
@@ -25,13 +25,17 @@ OptiMenu.prototype = {
   activityActionListeners: [],
   activityActionListenersMap: new WeakMap(),
 
-  init() {
+  init(selectedPlusHover) {
     this.select._optiMenu = this;
+    this.select.menuCntnr = this.menuCntnr;
     this.select.menuCntnr = this.menuCntnr;
     this.dragDrop._optiMenu = this;
     this.dragDrop.menuCntnr = this.menuCntnr;
 
     this.menuCntnr.className = "opti_menu_outer_container";
+    if (selectedPlusHover) {
+      this.menuCntnr.classList.add("opti_isselectedplushover");
+    }
 
     // Create a menuitem and add it to the DOM, then get computedStyle height.
     // We'll use this for calculating menu spacial data.
@@ -225,6 +229,13 @@ OptiMenu.prototype = {
 ///////////////////////////////////////////////////////////////////////////////
 // MENU DISPLAY BACKEND
 
+  indexCurrentMenuData() {
+    let len = this._currentMenuData.length;
+    for (let i = 0; i < len; i++) {
+      this._currentMenuData[i].opti_index = i;
+    }
+  },
+
   updateMenu(_currentMenuData, deepClone) {
     // Update _currentMenuData.
 
@@ -236,6 +247,7 @@ OptiMenu.prototype = {
       } else {
         this._currentMenuData = _currentMenuData.slice();
       }
+      this.indexCurrentMenuData();
     }
 
     this.updateMenuUI();
@@ -257,6 +269,7 @@ OptiMenu.prototype = {
 
     // Update _currentMenuData.
     this._currentMenuData = _currentMenuData;
+    this.indexCurrentMenuData();
 
     let currentIndex = this.currentIndex;
     let menuitemsCount = this.menuCntnr.childNodes.length - 2;
@@ -289,20 +302,23 @@ OptiMenu.prototype = {
     // First and last nodes are fill spacers.  Ignore those.  Everything else
     // inbetween are menuitems.
     let len = (nodes.length - 1);
-    for (let i=1;i<len;i++) {
+    for (let i = 1; i < len; i++) {
       let menuitem = nodes[i];
       if (index < cmDataLen) {
-        let data = _currentMenuData[index++];
-        this.setMenuitemProperties(menuitem, data);
+        let data = _currentMenuData[index];
+        this.setMenuitemProperties(menuitem, data, index);
+        index++;
       }
     }
   },
 
-  setMenuitemProperties(menuitem, data) {
+  setMenuitemProperties(menuitem, data, currentMenuDataIndex) {
     // ONLY OPTI
     // TODO: Can some of the properties being explicitly set below just be
     // accessed through opti_data?
     menuitem.opti_data = data;
+
+    menuitem.currentMenuDataIndex = currentMenuDataIndex;
 
     menuitem.opti_menutext.innerHTML = data.menutextstr;
 
@@ -324,6 +340,12 @@ OptiMenu.prototype = {
     }
     if (data.noSuffixIcon) {
       menuitem.classList.add("opti_menuitem_icon2_hide");
+    }
+    if (data.isSelected) {
+      menuitem.classList.add("opti_menuitemselected");
+      menuitem.isSelected = true;
+    } else {
+      delete(menuitem.isSelected);
     }
 
     // USER DEFINED
@@ -373,26 +395,21 @@ OptiMenu.prototype = {
     this.currentIndex = index;
   },
 
-  getSelectedMenuitems() {
-    let ids = [];
-    let menuitems = [];
-    let nodes = this.menuCntnr.childNodes;
-    let len = nodes.length - 1;
-    for (let i=1;i<len;i++) {
-      let menuitem = nodes[i];
-      if (menuitem.isSelected) {
-        ids.push(menuitem.tabId);
-        menuitems.push(menuitem);
+  getSelectedMenuData() {
+    let selected = [];
+    for (let datum of this._currentMenuData) {
+      if (datum.isSelected) {
+        selected.push(datum);
       }
     }
-    return { ids, menuitems }
+    return selected;
   },
 
   isResizeTimerRunning: false,
 
   updateMenuitemDims(bypass) {
     if (!bypass) {
-      if (!isResizeTimerRunning) {
+      if (!this.isResizeTimerRunning) {
         let _this = this;
         setTimeout(function() {
           _this.updateMenuitemDims(true);
@@ -424,21 +441,24 @@ OptiMenu.prototype = {
     menuCntnr: null,
 
     isMenuitemSelected: false,
-    lastSelectedMenuitem: null,
+    lastSelectedMenuDataItem: null,
 
     handleMenuitemSelect(e) {
       let item = e.target;
       let menuitem = item.opti_menuitem || item;
 
+      let menuitemData = this._optiMenu._currentMenuData[menuitem.currentMenuDataIndex];
+
       if (e.shiftKey) {
         // Always select for shift key.
         menuitem.isSelected = true;
         menuitem.classList.add("opti_menuitemselected");
+        menuitemData.isSelected = true;
 
         // If shiftKey and there has already been a menuitem selected,
         // select a range between the two.
-        if (this.lastSelectedMenuitem) {
-          this.selectRange(this.lastSelectedMenuitem, menuitem);
+        if (this.lastSelectedMenuDataItem) {
+          this.selectRange(menuitem, menuitemData, this.lastSelectedMenuDataItem);
         }
       } else {
         // If we are here it means that only ctrl and/or cmd key was pressed.
@@ -446,40 +466,51 @@ OptiMenu.prototype = {
         if (menuitem.isSelected) {
           delete(menuitem.isSelected);
           menuitem.classList.remove("opti_menuitemselected");
+          delete(menuitemData.isSelected);
         } else {
           menuitem.isSelected = true;
           menuitem.classList.add("opti_menuitemselected");
+          menuitemData.isSelected = true;
         }
       }
 
-      this.isMenuitemSelected = true;
-      this.menuCntnr.setAttribute("opti_ismenuitemselected", "true");
-      this.lastSelectedMenuitem = menuitem;
+      if (!menuitemData.isSelected && !this.getSelectedMenuData().length) {
+        // We unselected the only selected menuitem.
+        this.isMenuitemSelected = false;
+        this.menuCntnr.classList.remove("opti_ismenuitemselected");
+        this.lastSelectedMenuDataItem = null;
+      } else {
+        this.isMenuitemSelected = true;
+        this.menuCntnr.classList.add("opti_ismenuitemselected");
+        this.lastSelectedMenuDataItem = menuitemData;
+      }
     },
 
-    selectRange(menuitem1, menuitem2) {
+    selectRange(menuitem, menuitemData, lastMenuitemData) {
       // Selects a range between menuitem1 and menuitem2, regardless of which
       // is preceding.
-      if (menuitem1 == menuitem2) {
+      if (menuitemData.opti_index == lastMenuitemData.opti_index) {
         return;
       }
+      let startIndex = Math.min(menuitemData.opti_index, lastMenuitemData.opti_index);
+      let endIndex = Math.max(menuitemData.opti_index, lastMenuitemData.opti_index);
 
-      let select = false;
       let nodes = this.menuCntnr.childNodes;
       let len = nodes.length - 1;
-      for (let i=1;i<len;i++) {
+      for (let i = 1; i < len; i++) {
         let menuitem = nodes[i];
-        if (!select) {
-          if (menuitem == menuitem1 || menuitem == menuitem2) {
-            select = true;
-          }
-        } else {
-          if (menuitem == menuitem1 || menuitem == menuitem2) {
-            return;
-          }
+        if (menuitem.currentMenuDataIndex > endIndex) {
+          break;
+        }
+        if (menuitem.currentMenuDataIndex >= startIndex) {
           menuitem.classList.add("opti_menuitemselected");
           menuitem.isSelected = true;
         }
+      }
+      let _currentMenuData = this._optiMenu._currentMenuData;
+      len = _currentMenuData.length;
+      for (let i = startIndex; i <= endIndex; i++) {
+        _currentMenuData[i].isSelected = true;
       }
     },
 
@@ -491,9 +522,14 @@ OptiMenu.prototype = {
         menuitem.classList.remove("opti_menuitemselected");
         menuitem.isSelected = false;
       }
+      let _currentMenuData = this._optiMenu._currentMenuData;
+      len = _currentMenuData.length;
+      for (let i = 0; i < len; i++) {
+        delete(_currentMenuData[i].isSelected);
+      }
       this.isMenuitemSelected = false;
-      this.menuCntnr.removeAttribute("opti_ismenuitemselected");
-      this.lastSelectedMenuitem = null;
+      this.menuCntnr.classList.remove("opti_ismenuitemselected");
+      this.lastSelectedMenuDataItem = null;
     },
   },
 
@@ -566,7 +602,7 @@ OptiMenu.prototype = {
     },
 
     initDragFeedbackItem(e) {
-      let count = this._optiMenu.getSelectedMenuitems().ids.length;
+      let count = this._optiMenu.getSelectedMenuData().length;
       this.dragFeedback.textContent = "Moving "+count+" tab"+(count == 1 ? "" : "s");
     },
 
@@ -592,8 +628,8 @@ OptiMenu.prototype = {
       let menuitem = target.opti_menuitem || (target.isOptiMenuitem ? target : null);
 
       e.hybridType = "drop";
-      e.menuitem = menuitem;
-      e.selectedMenuitems = this._optiMenu.getSelectedMenuitems();
+e.menuitem = menuitem;
+      e.opti_selectedMenuData = this._optiMenu.getSelectedMenuData();
 
       this._optiMenu.callActivityDDListeners(e);
     },
@@ -621,6 +657,51 @@ OptiMenu.prototype = {
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
+// UTILS
+
+  getHoveredMenuitem() {
+    let nodes = this.menuCntnr.childNodes;
+    let len = nodes.length - 1;
+    for (let i = 1; i < len; i++) {
+      let menuitem = nodes[i];
+      if (menuitem.matches(".opti_menu_outer_container > div:hover")) {
+        return menuitem;
+      }
+    }
+  },
+
+  frozenHoveredItem: null,
+
+  freezeHoveredItem(unfreeze) {
+    if (unfreeze && this.frozenHoveredItem) {
+      this.menuCntnr.classList.remove("opti_menufrozen");
+      this.frozenHoveredItem.classList.remove("opti_frozen_menuitem");
+      this.frozenHoveredItem = null;
+      return;
+    }
+    this.frozenHoveredItem = this.getHoveredMenuitem();
+    if (this.frozenHoveredItem) {
+      this.menuCntnr.classList.add("opti_menufrozen");
+      this.frozenHoveredItem.classList.add("opti_frozen_menuitem");
+
+    }
+    return this.frozenHoveredItem.currentMenuDataIndex;
+  },
+
+  getFrozenHoveredItemIndex() {
+    return this.frozenHoveredItem.currentMenuDataIndex;
+  },
+
+  setSelectedPlusHoverState(remove) {
+    if (remove) {
+      this.menuCntnr.classList.remove("opti_isselectedplushover");
+    } else {
+      this.menuCntnr.classList.add("opti_isselectedplushover");
+    }
+  },
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 // EVENT HANDLERS
 
   clearSelectionOnMouseRelease: false,
@@ -631,9 +712,16 @@ OptiMenu.prototype = {
 
     switch(e.type) {
       case 'mousedown':
-        if (e.button != 0) { return; }
+        if (e.button != 0) {
+          return;
+        }
 
         e.preventDefault();
+
+        if (this.frozenHoveredItem) {
+          return;
+        }
+
         if (e.ctrlKey || e.metaKey || e.shiftKey) {
           this.select.handleMenuitemSelect(e);
         } else if (this.select.isMenuitemSelected) {
@@ -644,7 +732,9 @@ OptiMenu.prototype = {
         this.callActivityMouseListeners(e);
         break;
       case 'mouseup':
-        if (e.button != 0) { return; }
+        if (e.button != 0 || this.frozenHoveredItem) {
+          return;
+        }
 
         // Call onDrop() in case we were dragging.
         // (onDrop() will only run if isMenuitemDragging is true.)
@@ -670,7 +760,9 @@ OptiMenu.prototype = {
         this.callActivityMouseListeners(e);
         break;
       case 'click':
-        if (e.button != 0) { return; }
+        if (e.button != 0 || this.frozenHoveredItem) {
+          return;
+        }
 
         if (this.inhibitClick) {
           this.inhibitClick = false;

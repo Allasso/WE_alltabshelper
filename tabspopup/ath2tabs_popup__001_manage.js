@@ -1,158 +1,211 @@
-let windowsFocusedList = [];
-let currentTabsHash = {};
-let currentTabsList = [];
-let currentMenuData = [];
-let optiMenu;
-let contextMenu;
+let manage = {
+  contextMenu: undefined,
 
-function initManage() {
-  browser.tabs.onActivated.addListener(tabsOnActivatedListener);
-  browser.tabs.onCreated.addListener(tabsOnCreatedListener);
-  browser.tabs.onRemoved.addListener(tabsOnRemovedListener);
-  browser.tabs.onMoved.addListener(tabsOnMovedListener);
-  browser.tabs.onUpdated.addListener(tabsOnUpdatedListener);
+  async updateTabsListAfterMove() {
+  // TODO : Update the current tabs data based on prediction of the move instead
+  // of waiting for exceedingly slow browser.tabs.query()?  (see bug 1322869)
+  // TODO : Currently still allowing onMoved listener to also update the UI -
+  // Should we implement an inhibitor?  We still want to update here because
+  // it is more immediate/better UX.
+    await this.updateCurrentTabsData();
+    menuModes.setAllMenu();
+  },
 
-  optiMenu = new OptiMenu(tabsMenuCntnr, window);
-  contextMenu = new ContextMenu(window);
-  window.addEventListener("contextmenu", e => e.preventDefault());
-
-  optiMenu.addActivityDDListener(this.menuActivityDDListener);
-  optiMenu.addActivityActionListener(this.menuActivityActionListener);
-
-  initTabsMenu(false);
-
-dump("here I am...\n");
-}
-
-function getTabsInCurrentWindow() {
-  return browser.tabs.query({ windowId: globals.currentWindowId });
-}
-
-function getActiveTab() {
-  return browser.tabs.query({ windowId: globals.currentWindowId, active: true });
-}
-
-function menuActivityDDListener(e) {
-  if(e.hybridType == "drop") {
-    handleMenuDrop(e);
-    return;
-  }
-}
-
-function menuActivityActionListener(e) {
-  let menuitem = e.menuitem;
-  let tabId = menuitem.tabId;
-
-  if(e.hybridType == "menuitemclick") {
-    // Force immediate update for actions done in the menu.
-    updateForceTabsOnActivated[tabId] = true;
-    browser.tabs.update(tabId, { active: true });
-
-    // If we're clicking on a search result, highlight the result on the page.
-    if (typeof(menuitem.rangeIndex) == "number") {
-      findAndHighlight(tabId, menuitem.rangeIndex);
+  menuActivityDDListener(e) {
+    if(e.hybridType == "drop") {
+      manage.handleMenuDrop(e);
+      return;
     }
-    return;
-  }
-  if(e.hybridType == "action1click") {
-    if (menuMode == 3) {
-      toggleDisplaySearchResultsForTab(menuitem)
+  },
+
+  handleMenuDrop(e) {
+    let selectedData = e.opti_selectedMenuData;
+    let menuitem = e.menuitem;
+
+    if (!selectedData.length) {
       return;
     }
 
-    // Force immediate update for actions done in the menu.
-    updateForceTabsOnActivated[tabId] = true;
-    browser.tabs.update(tabId, { active: true });
-    return;
-  }
-  if(e.hybridType == "action2click") {
-    // Force immediate update for actions done in the menu.
-    updateForceTabsOnRemoved[tabId] = true;
-    browser.tabs.remove(tabId);
-    return;
-  }
-}
+    let tabIds = selectedData.map(datum => datum.userDefined.properties.tabId);
 
-/////////////////////////////////////////////////////////////////
-// LIST REBUILD AND MODIFICATION
-
-async function initTabsMenu(currentMode) {
-  await updateCurrentTabsData();
-  setChangeModeByModeIndex();
-}
-
-function updateCurrentTabsData() {
-  return new Promise(async function(resolve) {
-    let tabs = await getTabsInCurrentWindow();
-    currentTabsList = [];
-    currentTabsHash = {};
-
-    for (let tab of tabs) {
-      currentTabsHash[tab.id] = setCurrentTabsHashItem(tab);
-      currentTabsList.push(tab.id);
+    if (menuitem) {
+      menuitem = menuitem.nextSibling || menuitem;
+      tabs.moveTabs(tabIds, menuitem.tabId);
     }
-    resolve();
-  });
-}
+  },
 
-function setCurrentTabsHashItem(tab) {
-  return { menutextstr: tab.title || tab.url,
-           menuiconurl1: tab.favIconUrl,
-           menuiconurl2: CLOSE_BUTTON_URL,
+  menuActivityActionListener(e) {
+    let menuitem = e.menuitem;
+    let tabId = menuitem.tabId;
 
-           userDefined: {
-             properties: {
-               tabId: tab.id,
-               active: tab.active,
-               tabtitle: tab.title || tab.url,
-               url: tab.url,
-               index: tab.index,
-             },
-             classes: {
-               activetab: tab.active,
+    if(e.hybridType == "menuitemclick") {
+      // Force immediate update for actions done in the menu.
+      tabs.updateForceTabsOnActivated[tabId] = true;
+      browser.tabs.update(tabId, { active: true });
+
+      // If we're clicking on a search result, highlight the result on the page.
+      if (typeof(menuitem.rangeIndex) == "number") {
+        search.findAndHighlight(tabId, menuitem.rangeIndex);
+      }
+      return;
+    }
+    if(e.hybridType == "action1click") {
+      if (menuModes.menuMode == 3) {
+        search.toggleDisplaySearchResultsForTab(menuitem)
+        return;
+      }
+
+      // Force immediate update for actions done in the menu.
+      tabs.updateForceTabsOnActivated[tabId] = true;
+      browser.tabs.update(tabId, { active: true });
+      return;
+    }
+    if(e.hybridType == "action2click") {
+      // Force immediate update for actions done in the menu.
+      tabs.updateForceTabsOnRemoved[tabId] = true;
+      browser.tabs.remove(tabId);
+      return;
+    }
+  },
+
+  contextmenuShowingListener() {
+    let selected = OPTI_MENU.getSelectedMenuData();
+    let hasSelected = !!selected.length
+    //if (!hasSelected) {
+      let item = OPTI_MENU.freezeHoveredItem();
+    //}
+    manage.contextMenu.setDisabled({ "close_selected_tabs": !hasSelected,
+                                     "discard_selected_tabs": !hasSelected,
+                                     "move_selected_tabs": !hasSelected,
+                                     "cut_selected_tabs": !hasSelected,
+                                     "paste_cut_tabs": hasSelected || !tabs.cutTabIds.length })
+  },
+
+  contextmenuHidingListener() {
+    // Unfreeze main menu.
+    OPTI_MENU.freezeHoveredItem(true);
+    OPTI_MENU.select.clearMenuitemSelection();
+  },
+
+  contextmenuMousedownListener(target) {
+    if (target.id == "paste_cut_tabs") {
+      let hoveredItemIndex = OPTI_MENU.getFrozenHoveredItemIndex();
+      if (hoveredItemIndex) {
+        let tabId =
+          hoveredItemIndex < CURRENT_MENU_DATA.length - 1 ?
+          CURRENT_MENU_DATA[hoveredItemIndex + 1].userDefined.properties.tabId : -1;
+        tabs.pasteCutTabs(tabId);
+      }
+      return;
+    }
+
+    let selectedData = OPTI_MENU.getSelectedMenuData();
+    let tabIds = selectedData.map(datum => datum.userDefined.properties.tabId);
+    switch(target.id) {
+      case "close_selected_tabs":
+        tabs.closeSelectedTabs(tabIds);
+        break;
+      case "discard_selected_tabs":
+        tabs.discardSelectedTabs(tabIds);
+        break;
+      case "move_selected_tabs":
+        let hoveredItemIndex = OPTI_MENU.getFrozenHoveredItemIndex();
+        if (hoveredItemIndex) {
+          let tabId =
+            hoveredItemIndex < CURRENT_MENU_DATA.length - 1 ?
+            CURRENT_MENU_DATA[hoveredItemIndex + 1].userDefined.properties.tabId : -1;
+          tabs.moveSelectedTabs(tabIds, tabId);
+        }
+        break;
+      case "cut_selected_tabs":
+        tabs.cutSelectedTabs(tabIds);
+        break;
+    }
+  },
+
+  getTabsInCurrentWindow() {
+    return browser.tabs.query({ windowId: globals.currentWindowId });
+  },
+
+  setCurrentTabsHashItem(tab) {
+    return { menutextstr: tab.title || tab.url,
+             menuiconurl1: tab.favIconUrl,
+             menuiconurl2: CLOSE_BUTTON_URL,
+
+             userDefined: {
+               properties: {
+                 tabId: tab.id,
+                 active: tab.active,
+                 tabtitle: tab.title || tab.url,
+                 url: tab.url,
+                 index: tab.index,
+               },
+               classes: {
+                 activetab: tab.active,
+               }
              }
-           }
-         };
-}
+           };
+  },
 
-function getCurrentMenuDataAtTabId(tabId) {
-//dump("getCurrentMenuDataAtTabId : "+tabId+"\n");
-  let len = currentMenuData.length;
-  for (let index = 0; index < len; index++) {
-    let data = currentMenuData[index];
-    if (data.userDefined.properties.tabId == tabId) {
-      return { index, data };
-    }
-  }
-}
+  updateCurrentTabsData() {
+    return new Promise(async function(resolve) {
+      let tabs = await manage.getTabsInCurrentWindow();
+      CURRENT_TABS_LIST = [];
+      CURRENT_TABS_HASH = {};
 
-/////////////////////////////////////////////////////////////////
-
-/////////////////////////////////////////////////////////////////
-
-function handleMenuDrop(e) {
-  let selectedMenuitems = e.selectedMenuitems;
-  let menuitem = e.menuitem;
-
-  if (!selectedMenuitems.ids.length) {
-    return;
-  }
-  if (menuitem) {
-    menuitem = menuitem.nextSibling || menuitem;
-    moveTabs(selectedMenuitems.ids, menuitem.tabId, function() {
-      updateTabsListAfterMove();
+      for (let tab of tabs) {
+        CURRENT_TABS_HASH[tab.id] = manage.setCurrentTabsHashItem(tab);
+        CURRENT_TABS_LIST.push(tab.id);
+      }
+      resolve();
     });
-  }
-}
+  },
 
-async function updateTabsListAfterMove() {
-// TODO : Update the current tabs data based on prediction of the move instead
-// of waiting for exceedingly slow browser.tabs.query()?  (see bug 1322869)
-// TODO : Currently still allowing onMoved listener to also update the UI -
-// Should we implement an inhibitor?  We still want to update here because
-// it is more immediate/better UX.
-  await updateCurrentTabsData();
-  setAllMenu();
+  async initTabsMenu(currentMode) {
+    await this.updateCurrentTabsData();
+    menuModes.setChangeModeByModeIndex();
+  },
+
+  initContextMenuItems() {
+    let items = [
+                  { text: "Close selected tabs", id: "close_selected_tabs" },
+                  { text: "Unload selected tabs", id: "discard_selected_tabs" },
+                  { text: "Move selected tabs to hovered tab", id: "move_selected_tabs" },
+                  { text: "Cut selected tabs", id: "cut_selected_tabs" },
+                  { text: "Paste cut tabs at hovered tab", id: "paste_cut_tabs" },
+                  ];
+    this.contextMenu.addItems(items);
+  },
+
+  initManage() {
+    browser.tabs.onActivated.addListener(tabs.tabsOnActivatedListener);
+    browser.tabs.onCreated.addListener(tabs.tabsOnCreatedListener);
+    browser.tabs.onRemoved.addListener(tabs.tabsOnRemovedListener);
+    browser.tabs.onMoved.addListener(tabs.tabsOnMovedListener);
+    browser.tabs.onUpdated.addListener(tabs.tabsOnUpdatedListener);
+
+    OPTI_MENU = new OptiMenu(tabsMenuCntnr, window);
+    OPTI_MENU.addActivityDDListener(this.menuActivityDDListener);
+    OPTI_MENU.addActivityActionListener(this.menuActivityActionListener);
+
+    this.initTabsMenu(false);
+
+    this.contextMenu = new ContextMenu(window);
+    this.contextMenu.addContextmenuMousedownListener(this.contextmenuMousedownListener);
+    this.contextMenu.addContextmenuShowingListener(this.contextmenuShowingListener);
+    this.contextMenu.addContextmenuHidingListener(this.contextmenuHidingListener);
+    this.initContextMenuItems();
+  },
+
+  getCurrentMenuDataAtTabId(tabId) {
+    let len = CURRENT_MENU_DATA.length;
+    for (let index = 0; index < len; index++) {
+      let data = CURRENT_MENU_DATA[index];
+      if (data.userDefined.properties.tabId == tabId) {
+        return { index, data };
+      }
+    }
+  },
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -163,19 +216,19 @@ document.addEventListener("click", function(e) {
   if (e.button != 0) { return; }
 
   if (e.target.id == "buttonall") {
-    modeChangeAll();
+    menuModes.modeChangeAll();
     return;
   }
   if (e.target.id == "buttonrecent") {
-    modeChangeRecent();
+    menuModes.modeChangeRecent();
     return;
   }
   if (e.target.id == "buttondups") {
-    modeChangeDups();
+    menuModes.modeChangeDups();
     return;
   }
   if (e.target.id == "buttonsearch") {
-    modeChangeSearch();
+    menuModes.modeChangeSearch();
     return;
   }
 });

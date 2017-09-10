@@ -62,9 +62,10 @@
   line-height: 20px;
 }
 
-.opti_menuitemselected {
+.opti_menu_outer_container > .opti_menuitemselected {
+  /* background: linear-gradient(#66f, #44f) !important; */
   background: linear-gradient(#66f, #44f);
-  color: #fff;
+  color: #fff !important;
 }
 
 .opti_menuprespacer {
@@ -79,7 +80,17 @@
   width: 300px;
 }
 
-.opti_menu_outer_container:not([opti_ismenuitemselected]) > div:hover {
+.opti_menu_outer_container:not(.opti_ismenuitemselected):not(.opti_menufrozen) > div:hover {
   background: linear-gradient(#66f, #44f);
+  color: #fff;
+}
+
+.opti_menu_outer_container.opti_ismenuitemselected.opti_isselectedplushover:not(.opti_menufrozen) > div:hover {
+  background: linear-gradient(#aaf, #77f);
+  color: #fff;
+}
+
+.opti_menu_outer_container > .opti_frozen_menuitem {
+  background: linear-gradient(#aaf, #77f);
   color: #fff;
 }
