@@ -78,7 +78,7 @@ let manage = {
                                      "discard_selected_tabs": !hasSelected,
                                      "move_selected_tabs": !hasSelected,
                                      "cut_selected_tabs": !hasSelected,
-                                     "paste_cut_tabs": hasSelected || !tabs.cutTabIds.length })
+                                     "paste_cut_tabs": hasSelected || !BPW.getRecordedTabIds().length })
   },
 
   contextmenuHidingListener() {

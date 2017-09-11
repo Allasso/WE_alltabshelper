@@ -99,8 +99,12 @@ let main = {
     manage.initManage();
     main.initializePanelDims();
 
+    // Initialize recent tabs data and initialize tabs.lastActivatedTabId
+    // with the currently active tab.
     let tabData = await main.getActiveTab();
-    tabs.updateTabsRecent(tabData[0].id);
+    let activeTabId = tabData[0].id;
+    tabs.updateTabsRecent(activeTabId);
+    tabs.lastActivatedTabId = activeTabId;
 
     window.addEventListener("resize", main.onResize);
   },

@@ -146,8 +146,12 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
     }
   },
 
+  lastActivatedTabId: null,
+
   tabsOnActivatedListener(data) {
+dump("tabsOnActivatedListener\n");
     let tabId = data.tabId;
+    tabs.lastActivatedTabId = tabId;
 
     let fireImmediately = !tabs.updateForceTabsOnActivated[tabId];
     if (!fireImmediately) {
@@ -165,7 +169,19 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
     tabs.updateUIAccumulator({ tasks, tabId, fireImmediately })
   },
 
+  async newTabNextToSelected(tabId) {
+dump("newTabNextToSelected : "+tabId+"    "+tabs.lastActivatedTabId+"\n");
+    if (!tabs.lastActivatedTabId) {
+      return;
+    }
+    let lastActivatedTab = await browser.tabs.get(tabs.lastActivatedTabId);
+    await browser.tabs.move([tabId], { index : lastActivatedTab.index + 1 });
+  },
+
   tabsOnCreatedListener(tab) {
+dump("tabsOnCreatedListener : "+tab.active+"\n");
+    tabs.newTabNextToSelected(tab.id);
+
     // Simple one-off event, we just manipulate the data store directly.
     CURRENT_TABS_HASH[tab.id] = { menutextstr : tab.title || tab.url,
                                   menuiconurl1 : tab.favIconUrl,
@@ -195,6 +211,7 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
   },
 
   tabsOnRemovedListener(tabId, data) {
+dump("tabsOnRemovedListener 1 : "+CURRENT_TABS_LIST.length+"\n");
     let fireImmediately = !tabs.updateForceTabsOnRemoved[tabId];
     if (!fireImmediately) {
       delete(tabs.updateForceTabsOnRemoved[tabId]);
@@ -209,6 +226,7 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
       }
     }
     CURRENT_TABS_LIST = arr;
+dump("tabsOnRemovedListener 2 : "+CURRENT_TABS_LIST.length+"\n");
 
     let tasks = { typeUpdateTabsRecent: true,
                   doRefreshCurrentMenu: true };
@@ -223,6 +241,7 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
   },
 
   tabsOnUpdatedListener(tabId, data) {
+dump("tabsOnUpdatedListener : "+tabId+"\n");
     // WHAT TODO: Just return here?  Or build the hash entry?
     if (!CURRENT_TABS_HASH[tabId]) {
       return;
@@ -293,15 +312,13 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
     if (tabId != -1) {
       // TODO:  Should we use CURRENT_TABS_HASH rather than tabs.get?
       let tab = await browser.tabs.get(tabId);
-      await browser.tabs.move(ids, { index : tab.index });
+      await browser.tabs.move(ids, { index : tab.index, windowId: THIS_WINDOW_ID });
     }
 
     if (typeof callback == "function") {
       callback();
     }
   },
-
-  cutTabIds: [],
 
   /**
    *  Close selected tabs.
@@ -336,8 +353,8 @@ dump("discardSelectedTabs : "+ids+"\n");
    *  ids : list of tab ids correlating to tabs to "cut", meaning, putting them
    *  in a list to be moved.
    */
-  async cutSelectedTabs(ids) {
-    this.cutTabIds = ids;
+  async cutSelectedTabs(tabIds) {
+    BPW.recordTabIds(tabIds);
   },
 
   /**
@@ -345,9 +362,17 @@ dump("discardSelectedTabs : "+ids+"\n");
    *
    *  Move tabs from "cut" list to just after the hovered tab position.
    */
-  async pasteCutTabs(id) {
-    if (id && this.cutTabIds.length) {
-      this.moveTabs(this.cutTabIds, id);
+  async pasteCutTabs(tabId) {
+    if (!tabId) {
+      return;
     }
+
+    let tabIds = BPW.getRecordedTabIds();
+
+    if (!tabIds || ! tabIds.length) {
+      return;
+    }
+
+    this.moveTabs(tabIds, tabId);
   },
 }
