@@ -124,7 +124,7 @@ let manage = {
   },
 
   getTabsInCurrentWindow() {
-    return browser.tabs.query({ windowId: globals.currentWindowId });
+    return browser.tabs.query({ currentWindow: true });
   },
 
   setCurrentTabsHashItem(tab) {
@@ -163,16 +163,18 @@ let manage = {
 
   async initTabsMenu(currentMode) {
     await this.updateCurrentTabsData();
-    menuModes.setChangeModeByModeIndex();
+    let menuMode = BPW.getMenuMode(THIS_WINDOW_ID);
+    menuModes.setChangeModeByModeIndex(menuMode);
   },
 
   initContextMenuItems() {
     let items = [
                   { text: "Close selected tabs", id: "close_selected_tabs" },
                   { text: "Unload selected tabs", id: "discard_selected_tabs" },
-                  { text: "Move selected tabs to hovered tab", id: "move_selected_tabs" },
-                  { text: "Cut selected tabs", id: "cut_selected_tabs" },
-                  { text: "Paste cut tabs at hovered tab", id: "paste_cut_tabs" },
+                  { text: "Move selected tabs to", id: "move_selected_tabs" },
+                  { menuseparator: true },
+                  { text: "Record selected tabs for moving", id: "cut_selected_tabs" },
+                  { text: "Move recorded tabs to", id: "paste_cut_tabs" },
                   ];
     this.contextMenu.addItems(items);
   },
@@ -189,6 +191,11 @@ let manage = {
     OPTI_MENU.addActivityActionListener(this.menuActivityActionListener);
 
     this.initTabsMenu(false);
+
+    // Side-car assistant to scroll menu while hovering/dragging.  See
+    // documentation in 029_hover_scroll_assistant.js.
+    DRAG_SCROLL_ASSISTANT =
+      new DragScrollAssistant(tabsMenuCntnr, topHoverDetector, bottomHoverDetector);
 
     this.contextMenu = new ContextMenu(window);
     this.contextMenu.addContextmenuMousedownListener(this.contextmenuMousedownListener);

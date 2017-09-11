@@ -6,9 +6,10 @@ const buttonAll = document.getElementById('buttonall');
 const buttonRecent = document.getElementById('buttonrecent');
 const buttonDups = document.getElementById('buttondups');
 const buttonSearch = document.getElementById('buttonsearch');
+const topHoverDetector = document.getElementById('tophoverdetector');
 const messageContainer = document.getElementById('message');
+const bottomHoverDetector = document.getElementById('bottomhoverdetector');
 const contextMenuContainer = document.getElementById('contextmenu');
-const DEFAULT_FAVICON_URL = "../icons/transparent_16x16.png";
 const LOADING_FAVICON_URL = "../icons/loading.png";
 const CLOSE_BUTTON_URL = "../icons/button_close_12.png";
 
@@ -18,9 +19,10 @@ let CURRENT_TABS_HASH = {};
 let CURRENT_TABS_LIST = [];
 let CURRENT_MENU_DATA = [];
 let OPTI_MENU;
+let DRAG_SCROLL_ASSISTANT;
+let THIS_WINDOW_ID;
 
 let globals = {
-  currentWindowId: 0,
   tabsRecentIdsArr: [],
 };
 
@@ -76,7 +78,7 @@ let main = {
   },
 
   getActiveTab() {
-    return browser.tabs.query({ windowId: globals.currentWindowId, active: true });
+    return browser.tabs.query({ currentWindow: true, active: true });
   },
 
   async init() {
@@ -86,10 +88,12 @@ let main = {
     BPW = win.background;
     BPG = win.globals;
 
-    let winData = await browser.windows.getCurrent();
+    if (THIS_WINDOW_ID === undefined) {
+      let winData = await browser.windows.getCurrent();
+      THIS_WINDOW_ID = winData.id;
+    }
 
-    globals.currentWindowId = BPG.currentWindowId;
-    let recentTabsState = BPW.getRecentTabsState();
+    let recentTabsState = BPW.getRecentTabsState(THIS_WINDOW_ID);
     globals.tabsRecentIdsArr = JSON.parse(recentTabsState);
 
     manage.initManage();
@@ -102,30 +106,9 @@ let main = {
   },
 
   async handlePanelBeforeunload() {
-    BPW.recordRecentTabsState
-          (globals.currentWindowId, JSON.stringify(globals.tabsRecentIdsArr));
-    BPG.currentWindowPos = { left: window.screenX, top: window.screenY };
-  },
-
-  onFocusedWindowUpdate(newCurrentWindowId) {
-    BPW.recordRecentTabsState
-          (globals.currentWindowId, JSON.stringify(globals.tabsRecentIdsArr));
-    let state = BPW.getRecentTabsState(newCurrentWindowId);
-    globals.currentWindowId = newCurrentWindowId;
-
-    globals.tabsRecentIdsArr = JSON.parse(state);
-
-    manage.initTabsMenu(true);
-  },
-
-  handleMessage(request) {
-    if (request.currentWindowUpdated) {
-      this.onFocusedWindowUpdate(request.currentWindowUpdated);
-    }
+    BPW.recordRecentTabsState(THIS_WINDOW_ID, JSON.stringify(globals.tabsRecentIdsArr));
   },
 }
 
 window.addEventListener("load", main.init);
 window.addEventListener("beforeunload", main.handlePanelBeforeunload);
-
-browser.runtime.onMessage.addListener(main.handleMessage);

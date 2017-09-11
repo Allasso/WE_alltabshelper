@@ -4,7 +4,7 @@ let menuModes = {
   // 1 : recent
   // 2 : dups
   // 3 : search
-  menuMode: 0,
+  menuMode: undefined,
 
   // Flags for setChangeModeByModeIndex.
   isSetChangeModeTimerRunning: false,
@@ -168,26 +168,37 @@ let menuModes = {
   },
 
   modeChangeAll(force) {
+dump("modeChangeAll : "+force+"\n");
+    // If there is a value in searchInput, clear the value and force an update
+    // to show all tabs.
+    if (searchInput.value) {
+      searchInput.value = "";
+      force = true;
+    }
+
     let prevMenuMode = this.menuMode;
     this.menuMode = 0;
     this.setButtonAppearance("all");
     // Clear message if there is one.
     this.displayMessage();
 
-    if (prevMenuMode !== 0 || force) {
+    if (prevMenuMode !== this.menuMode || force) {
       this.setAllMenu();
+      BPW.recordMenuMode(THIS_WINDOW_ID, this.menuMode);
     }
   },
 
   modeChangeRecent(force) {
+dump("modeChangeRecent : "+force+"\n");
     let prevMenuMode = this.menuMode;
     this.menuMode = 1;
     this.setButtonAppearance("recent");
     // Clear message if there is one.
     this.displayMessage();
 
-    if (prevMenuMode != 1 || force) {
+    if (prevMenuMode != this.menuMode || force) {
       this.setRecentMenu();
+      BPW.recordMenuMode(THIS_WINDOW_ID, this.menuMode);
     }
   },
 
@@ -198,8 +209,9 @@ let menuModes = {
     // Clear message if there is one.
     this.displayMessage();
 
-    if (prevMenuMode != 2 || force) {
+    if (prevMenuMode != this.menuMode || force) {
       this.setDupsMenu();
+      BPW.recordMenuMode(THIS_WINDOW_ID, this.menuMode);
     }
   },
 
@@ -211,6 +223,9 @@ let menuModes = {
     this.displayMessage();
 
     this.setSearchMenu();
+    if (prevMenuMode != this.menuMode || force) {
+      BPW.recordMenuMode(THIS_WINDOW_ID, this.menuMode);
+    }
   },
 
   setChangeModeByModeIndex(mode, execute) {

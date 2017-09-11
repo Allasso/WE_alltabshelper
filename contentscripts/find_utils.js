@@ -246,8 +246,6 @@ browser.runtime.onMessage.addListener(
     let topic = request.topic;
     let tabId = request.tabId;
     if (topic == "alltabshelper:getTabContentText") {
-//dump("content script message listener 1 : \n");
-//dump("content script message listener 2 : "+textRetriever.getTabContentText()+"\n");
       sendResponse({ tabId: tabId, contentText: textRetriever.getTabContentText() });
     }
     if (topic == "alltabshelper:getResultsContext") {

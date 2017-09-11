@@ -1,0 +1,13 @@
+/* Styles specific to browserAction popup, especially where the same style on
+   browserAction popup and sidebarAction panel has different effects. */
+
+#searchinput {
+  width: 95%;
+  margin: 7px auto 0 auto;
+}
+
+#tabsmenucontainer {
+  /* browserAction popup apparently has a fixed max-height.  Assuming 535px base
+     on experimentation.  Maybe could figure a way to dynamically calculate that. */
+  height: 100%;
+}

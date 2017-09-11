@@ -28,7 +28,6 @@ OptiMenu.prototype = {
   init(selectedPlusHover) {
     this.select._optiMenu = this;
     this.select.menuCntnr = this.menuCntnr;
-    this.select.menuCntnr = this.menuCntnr;
     this.dragDrop._optiMenu = this;
     this.dragDrop.menuCntnr = this.menuCntnr;
 

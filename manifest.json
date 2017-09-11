@@ -8,8 +8,12 @@
     "32": "icons/ath_icon_64.png",
     "48": "icons/ath_icon_64.png"
   },
+  "applications": {
+    "gecko": {
+      "id": "AllTabsHelper@kevinallasso.org"
+    }
+  },
   "permissions": [
-    "activeTab",
     "tabs",
     "find",
     "storage"
@@ -17,15 +21,15 @@
   "browser_action": {
     "default_icon": "icons/ath_icon_64.png",
     "default_title": "All Tabs Helper",
-    "default_popup": "tabspopup/ath2tabs_popup.html"
+    "default_popup": "panel_html/browserAction.html"
   },
   "background": {
-    "scripts": ["background/ath2background_1.js"]
+    "scripts": ["background/background.js"]
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["contentscripts/ath2contentscript_find_highlight.js"]
+      "js": ["contentscripts/find_utils.js"]
     }
   ],
   "web_accessible_resources": [
@@ -36,6 +40,6 @@
       "32": "icons/ath_icon_64.png"
     },
     "default_title": "All Tabs Helper",
-    "default_panel": "tabspopup/ath2tabs_popup.html"
+    "default_panel": "panel_html/sidebarAction.html"
   }
 }

@@ -43,6 +43,9 @@ let tabs = {
     this.accumUpdateTabsRecentRemove = {};
     this.accumUpdateTabsRecentAdd = [];
     globals.tabsRecentIdsArr = arr;
+
+    // TODO: Remove if/when bug 1398625 gets fixed.
+    BPW.recordRecentTabsState(THIS_WINDOW_ID, JSON.stringify(globals.tabsRecentIdsArr));
   },
 
   // Properties for updateUIAccumulator.
@@ -80,8 +83,6 @@ let tabs = {
             typeUpdateTabsRecent } = tasks;
 
       // Set flag(s)
-
-dump("updateUIAccumulator ACCUM : "+doUpdateCurrentTabsData+"    "+doRefreshCurrentMenu+"    "+doUpdateMenu+"    "+typeUpdateTabsRecent+"\n");
 
       if (doUpdateCurrentTabsData) {
         this.tasksUpdateMenuGate.flagUpdateCurrentTabsData = true;
