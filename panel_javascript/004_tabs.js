@@ -148,8 +148,22 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
 
   lastActivatedTabId: null,
 
+  async newTabNextToSelected(tabId) {
+    if (!tabs.lastActivatedTabId) {
+      return;
+    }
+    let lastActivatedTab = await browser.tabs.get(tabs.lastActivatedTabId);
+    await browser.tabs.move([tabId], { index : lastActivatedTab.index + 1 });
+  },
+
   tabsOnActivatedListener(data) {
-dump("tabsOnActivatedListener\n");
+    // Activated tab is in another window.
+    if (data.windowId != THIS_WINDOW_ID) {
+      return;
+    }
+
+//dump("tabsOnActivatedListener : tabId : "+data.tabId+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"\n");
+
     let tabId = data.tabId;
     tabs.lastActivatedTabId = tabId;
 
@@ -169,17 +183,14 @@ dump("tabsOnActivatedListener\n");
     tabs.updateUIAccumulator({ tasks, tabId, fireImmediately })
   },
 
-  async newTabNextToSelected(tabId) {
-dump("newTabNextToSelected : "+tabId+"    "+tabs.lastActivatedTabId+"\n");
-    if (!tabs.lastActivatedTabId) {
+  tabsOnCreatedListener(tab) {
+    // Created in another window.
+    if (tab.windowId != THIS_WINDOW_ID) {
       return;
     }
-    let lastActivatedTab = await browser.tabs.get(tabs.lastActivatedTabId);
-    await browser.tabs.move([tabId], { index : lastActivatedTab.index + 1 });
-  },
 
-  tabsOnCreatedListener(tab) {
-dump("tabsOnCreatedListener : "+tab.active+"\n");
+//dump("tabsOnCreatedListener : tabId : "+tab.id+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"\n");
+
     tabs.newTabNextToSelected(tab.id);
 
     // Simple one-off event, we just manipulate the data store directly.
@@ -211,7 +222,13 @@ dump("tabsOnCreatedListener : "+tab.active+"\n");
   },
 
   tabsOnRemovedListener(tabId, data) {
-dump("tabsOnRemovedListener 1 : "+CURRENT_TABS_LIST.length+"\n");
+    // Removed from another window.
+    if (data.windowId != THIS_WINDOW_ID) {
+      return;
+    }
+
+//dump("tabsOnRemovedListener : tabId : "+tabId+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"\n");
+
     let fireImmediately = !tabs.updateForceTabsOnRemoved[tabId];
     if (!fireImmediately) {
       delete(tabs.updateForceTabsOnRemoved[tabId]);
@@ -226,7 +243,6 @@ dump("tabsOnRemovedListener 1 : "+CURRENT_TABS_LIST.length+"\n");
       }
     }
     CURRENT_TABS_LIST = arr;
-dump("tabsOnRemovedListener 2 : "+CURRENT_TABS_LIST.length+"\n");
 
     let tasks = { typeUpdateTabsRecent: true,
                   doRefreshCurrentMenu: true };
@@ -234,23 +250,38 @@ dump("tabsOnRemovedListener 2 : "+CURRENT_TABS_LIST.length+"\n");
     tabs.updateUIAccumulator({ tasks, tabId, fireImmediately })
   },
 
+  tabMovedFromAnotherWindowIds: {},
+
   tabsOnMovedListener(tabId, data) {
-    CURRENT_TABS_HASH[tabId].userDefined.properties.index = data.index;
-    let tasks = { doUpdateCurrentTabsData: true, doRefreshCurrentMenu: true };
+//dump("tabsOnMovedListener XXXXXXX : tabId : "+tabId+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"    tab in this window? : "+(data.windowId == THIS_WINDOW_ID)+"\n");
+    // Moved tab is from another window.
+    if (data.windowId != THIS_WINDOW_ID) {
+      return;
+    }
+
+//dump("tabsOnMovedListener : tabId : "+tabId+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"\n");
+
+//CURRENT_TABS_HASH[tabId].userDefined.properties.index = data.index;
+    let tasks = { doUpdateCurrentTabsData: true,
+                  doRefreshCurrentMenu: true };
+    tabs.updateUIAccumulator({ tasks })
+  },
+
+  tabsOnDetachedListener(tabId, info) {
+//dump("tabsOnDetachedListener WWWWWWW : tabId : "+tabId+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"\n");
+
+    let tasks = { doUpdateCurrentTabsData: true,
+                  doRefreshCurrentMenu: true };
     tabs.updateUIAccumulator({ tasks })
   },
 
   tabsOnUpdatedListener(tabId, data) {
-dump("tabsOnUpdatedListener : "+tabId+"\n");
-    // WHAT TODO: Just return here?  Or build the hash entry?
-    if (!CURRENT_TABS_HASH[tabId]) {
+    // Update is from tab in another window.
+    if (data.windowId != THIS_WINDOW_ID) {
       return;
     }
-    /*
-    if (!CURRENT_TABS_HASH[tabId]) {
-      CURRENT_TABS_HASH[tabId] = { userDefined: {  }};
-    }
-    */
+
+//dump("tabsOnUpdatedListener : tabId : "+tabId+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"\n");
 
     let menuData = manage.getCurrentMenuDataAtTabId(tabId);
     if (!menuData) {
@@ -298,63 +329,131 @@ dump("tabsOnUpdatedListener : "+tabId+"\n");
   },
 
   /**
-   *  Move a list of tabs to just after a given tab.
+   * STUB - STUB - STUB - moveTabs2
    *
-   *  ids : list of tab ids correlating to tabs to move
-   *  tabId : id of the tab to insert the tabs after
+   * Future code proposal for the current workaround for bug 1323311 and bug 1400456
+   * which first moves tabs to the end of the list, then to their desired postions.
+   * The code shown below will actually workaround bug 1323311; awaiting a fix
+   * for bug 1400456 to determine more effecient code for that.
+   *
+   * moveTabs - Move a list of tabs to just after a given tab.
+   *
+   * tabIds : list of tab ids correlating to tabs to move
+   * index : index of the tab to insert the tabs after
+   *
+   * Tab moves from another window are handled differently than moves within the
+   * same window.  in the case of same window moves, this method relies on
+   * tabIds being sequenced in tab index order.
    */
-  async moveTabs(ids, tabId, callback) {
-    // Workaround for bug 1323311 - first move all tabs to the end of the list,
-    // then move them into the desired positions.
-    // TODO: There is probably a more efficient workaround for this.
-    await browser.tabs.move(ids, { index : -1 });
+  async moveTabs2(tabIds, index, windowId) {
+    let beforeTabs = [];
+    let afterTabs = [];
 
-    if (tabId != -1) {
-      // TODO:  Should we use CURRENT_TABS_HASH rather than tabs.get?
-      let tab = await browser.tabs.get(tabId);
-      await browser.tabs.move(ids, { index : tab.index, windowId: THIS_WINDOW_ID });
+    if (typeof windowId == "number" && windowId !== THIS_WINDOW_ID) {
+      afterTabs = tabIds.slice();
+    } else {
+      for (let tabId of tabIds) {
+        if (CURRENT_TABS_HASH[tabId].userDefined.properties.index < index) {
+          beforeTabs.push(tabId);
+        } else {
+          afterTabs.push(tabId);
+        }
+      }
     }
 
-    if (typeof callback == "function") {
-      callback();
+    if (beforeTabs.length) {
+      await browser.tabs.move(tabIds, { index, windowId: THIS_WINDOW_ID });
+    }
+
+    if (afterTabs.length) {
+      await browser.tabs.move(tabIds, { index: index + 1, windowId: THIS_WINDOW_ID });
+    }
+  },
+
+  /**
+   * moveTabs - Move a list of tabs to just after a given tab.
+   *
+   * tabIds : list of tab ids correlating to tabs to move
+   * index : index of the tab to insert the tabs after
+   *
+   * Tab moves from another window are handled differently than moves within the
+   * same window.
+   *
+   * This method makes a few assumptions:
+   *
+   * That the sequence of tabIds follows tabs order.
+   * All tabs being moved are within the same window, whether it is this or another.
+   * CURRENT_TABS_HASH remains up to date and its integrity so that all tabIds in
+   *   this window are accounted for.
+   *
+   * Workaround for bug 1323311 and bug 1400456:
+   * First move all tabs to the end of the list, then move them into the desired
+   * positions.  However, before doing this, if tabs being moved are within the
+   * same window, the move-to index must be adjusted for any tabs that precede
+   * the move-to index, since they will all first get removed from their spots
+   * that precede the index.
+   * This workaround should silently degrade.
+   */
+  async moveTabs(tabIds, index, windowId) {
+    if (typeof windowId != "number" || windowId === THIS_WINDOW_ID) {
+      let beforeTabsCount = 0;
+      for (let tabId of tabIds) {
+        if (CURRENT_TABS_HASH[tabId].userDefined.properties.index < index) {
+          beforeTabsCount++;
+        }
+      }
+      index -= beforeTabsCount;
+    }
+
+    let movedTabs = await browser.tabs.move(tabIds, { index : -1, windowId: THIS_WINDOW_ID });
+
+    // If tabs were moved from another window, we need to use the converted
+    // tab ids when moving them again, since moving tabs between windows actually
+    // destroys tabs in the old window and creates new tabs in the new window.
+    let movedTabIds = movedTabs.map(tab => tab.id);
+
+    if (index != -1) {
+      await browser.tabs.move(movedTabIds, { index: index + 1, windowId: THIS_WINDOW_ID });
     }
   },
 
   /**
    *  Close selected tabs.
    *
-   *  ids : list of tab ids correlating to tabs to close
+   *  tabIds : list of tab ids correlating to tabs to close
    */
-  async closeSelectedTabs(ids) {
-dump("closeSelectedTabs : "+ids+"\n");
+  async closeSelectedTabs(tabIds) {
+dump("closeSelectedTabs : "+tabIds+"\n");
   },
 
   /**
    *  Discard selected tabs.
    *
-   *  ids : list of tab ids correlating to tabs to discard
+   *  tabIds : list of tab ids correlating to tabs to discard
    */
-  async discardSelectedTabs(ids) {
-dump("discardSelectedTabs : "+ids+"\n");
+  async discardSelectedTabs(tabIds) {
+dump("discardSelectedTabs : "+tabIds+"\n");
   },
 
   /**
    *  Move selected tabs.
    *
-   *  ids : list of tab ids correlating to tabs to discard
+   *  tabIds : list of tab ids correlating to tabs to discard
    */
-  async moveSelectedTabs(ids, targetTabId) {
-    this.moveTabs(ids, targetTabId);
+  async moveSelectedTabs(tabIds, targetTabId) {
+dump("discardSelectedTabs : "+tabIds+"    "+targetTabId+"\n");
+    this.moveTabs(tabIds, targetTabId);
   },
 
   /**
    *  Cut selected tabs.
    *
-   *  ids : list of tab ids correlating to tabs to "cut", meaning, putting them
+   *  tabIds : list of tab ids correlating to tabs to "cut", meaning, putting them
    *  in a list to be moved.
    */
   async cutSelectedTabs(tabIds) {
-    BPW.recordTabIds(tabIds);
+dump("cutSelectedTabs : "+tabIds+"\n");
+    BPW.recordTabIds(JSON.stringify({ windowId: THIS_WINDOW_ID, tabIds }));
   },
 
   /**
@@ -362,17 +461,14 @@ dump("discardSelectedTabs : "+ids+"\n");
    *
    *  Move tabs from "cut" list to just after the hovered tab position.
    */
-  async pasteCutTabs(tabId) {
-    if (!tabId) {
-      return;
-    }
-
-    let tabIds = BPW.getRecordedTabIds();
+  async pasteCutTabs(index) {
+    let { windowId, tabIds } = JSON.parse(BPW.getRecordedTabIds());
+dump("pasteCutTabs : index : "+index+"    windowId : "+windowId+"    tabIds : "+tabIds+"\n");
 
     if (!tabIds || ! tabIds.length) {
       return;
     }
 
-    this.moveTabs(tabIds, tabId);
+    this.moveTabs(tabIds, index, windowId);
   },
 }

@@ -18,20 +18,21 @@ let manage = {
     }
   },
 
-  handleMenuDrop(e) {
+  async handleMenuDrop(e) {
     let selectedData = e.opti_selectedMenuData;
     let menuitem = e.menuitem;
 
-    if (!selectedData.length) {
+    if (!menuitem || !selectedData.length) {
       return;
     }
 
     let tabIds = selectedData.map(datum => datum.userDefined.properties.tabId);
 
-    if (menuitem) {
-      menuitem = menuitem.nextSibling || menuitem;
-      tabs.moveTabs(tabIds, menuitem.tabId);
-    }
+    let index = CURRENT_TABS_HASH[menuitem.tabId].userDefined.properties.index;
+
+dump("handleMenuDrop : index : "+index+"\n");
+
+    tabs.moveTabs(tabIds, index);
   },
 
   menuActivityActionListener(e) {
@@ -78,7 +79,10 @@ let manage = {
                                      "discard_selected_tabs": !hasSelected,
                                      "move_selected_tabs": !hasSelected,
                                      "cut_selected_tabs": !hasSelected,
-                                     "paste_cut_tabs": hasSelected || !BPW.getRecordedTabIds().length })
+                                     "paste_cut_tabs": hasSelected ||
+                                                       !BPW.getRecordedTabIds() ||
+                                                       !JSON.parse(BPW.getRecordedTabIds()).tabIds.length,
+                                  })
   },
 
   contextmenuHidingListener() {
@@ -90,11 +94,8 @@ let manage = {
   contextmenuMousedownListener(target) {
     if (target.id == "paste_cut_tabs") {
       let hoveredItemIndex = OPTI_MENU.getFrozenHoveredItemIndex();
-      if (hoveredItemIndex) {
-        let tabId =
-          hoveredItemIndex < CURRENT_MENU_DATA.length - 1 ?
-          CURRENT_MENU_DATA[hoveredItemIndex + 1].userDefined.properties.tabId : -1;
-        tabs.pasteCutTabs(tabId);
+      if (typeof hoveredItemIndex == "number") {
+        tabs.pasteCutTabs(hoveredItemIndex);
       }
       return;
     }
@@ -110,11 +111,8 @@ let manage = {
         break;
       case "move_selected_tabs":
         let hoveredItemIndex = OPTI_MENU.getFrozenHoveredItemIndex();
-        if (hoveredItemIndex) {
-          let tabId =
-            hoveredItemIndex < CURRENT_MENU_DATA.length - 1 ?
-            CURRENT_MENU_DATA[hoveredItemIndex + 1].userDefined.properties.tabId : -1;
-          tabs.moveSelectedTabs(tabIds, tabId);
+        if (typeof hoveredItemIndex == "number") {
+          tabs.moveTabs(tabIds, hoveredItemIndex);
         }
         break;
       case "cut_selected_tabs":
@@ -128,6 +126,7 @@ let manage = {
   },
 
   setCurrentTabsHashItem(tab) {
+//dump("setCurrentTabsHashItem :\n    tab.index : "+tab.index+"\n    tab.id : "+tab.id+"\n    tab.active : "+tab.active+"\n    tab.title : "+tab.title+"\n    tab.url : "+tab.url+"\n    tab.favIconUrl : "+tab.favIconUrl+
     return { menutextstr: tab.title || tab.url,
              menuiconurl1: tab.favIconUrl,
              menuiconurl2: CLOSE_BUTTON_URL,
@@ -184,6 +183,7 @@ let manage = {
     browser.tabs.onCreated.addListener(tabs.tabsOnCreatedListener);
     browser.tabs.onRemoved.addListener(tabs.tabsOnRemovedListener);
     browser.tabs.onMoved.addListener(tabs.tabsOnMovedListener);
+    browser.tabs.onDetached.addListener(tabs.tabsOnDetachedListener);
     browser.tabs.onUpdated.addListener(tabs.tabsOnUpdatedListener);
 
     OPTI_MENU = new OptiMenu(tabsMenuCntnr, window);

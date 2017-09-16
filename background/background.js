@@ -2,7 +2,7 @@ globals = {
   currentWindowId: null,
   tabsRecentIdsMap: {},
   menuModesMap: {},
-  recordedTabIds: [],
+  recordedTabIds: "",
   resultsContextLength: 40,
   findHighlightingMode: 3,
 };
@@ -27,11 +27,11 @@ background = {
     return JSON.stringify(globals.tabsRecentIdsMap[currentWindowId]);
   },
 
-  recordTabIds(tabIds) {
-    if (tabIds) {
-      globals.recordedTabIds = tabIds;
+  recordTabIds(tabIdsData) {
+    if (tabIdsData) {
+      globals.recordedTabIds = tabIdsData;
     } else {
-      globals.recordedTabIds = [];
+      globals.recordedTabIds = "";
     }
   },
 
