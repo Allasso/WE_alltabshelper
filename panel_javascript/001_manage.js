@@ -255,10 +255,8 @@ let manage = {
   onStorageChange(changes, areaName) {
     if ("alltabshelper:pref_bool_fayt" in changes) {
       FAYT = changes["alltabshelper:pref_bool_fayt"].newValue;
-dump("XXX : change : FAYT : "+FAYT+"\n");
     } else if ("alltabshelper:pref_bool_show_remaining_tabs_in_recent" in changes) {
       PREF_SHOW_REMAINING_TABS_IN_RECENT = changes["alltabshelper:pref_bool_show_remaining_tabs_in_recent"].newValue;
-dump("XXX : change : PREF_SHOW_REMAINING_TABS_IN_RECENT : "+PREF_SHOW_REMAINING_TABS_IN_RECENT+"\n");
     }
   },
 

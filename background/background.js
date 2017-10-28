@@ -1,6 +1,6 @@
 globals = {
   tabsRecentIds: {},
-  tabsRecentPointer: 0,
+  tabsRecentPointer: {},
   menuModesMap: {},
   recordedTabIds: "",
   resultsContextLength: 40,
@@ -59,7 +59,7 @@ function updateTabsRecent(tabId, windowId, remove) {
   }
 
   // Always reset the pointer.
-  globals.tabsRecentPointer = 0;
+  globals.tabsRecentPointer[windowId] = 0;
 
   if (!globals.tabsRecentIds[windowId]) {
     globals.tabsRecentIds[windowId] = [tabId];
@@ -119,16 +119,15 @@ browser.commands.onCommand.addListener(async function(command) {
     currentWindowId = winData.id;
     let tabsRecentIds = globals.tabsRecentIds[currentWindowId];
 
-    let index = globals.tabsRecentPointer + dir;
+    let index = globals.tabsRecentPointer[currentWindowId] + dir;
     if (index > tabsRecentIds.length - 1 || index < 0) {
       return;
     }
 
     let targetId = tabsRecentIds[index];
-dump("XXX : tabs-history-back : targetId : "+targetId+"\n");
     inhibitTabsRecentUpdate = targetId;
     browser.tabs.update(targetId, {active: true});
-    globals.tabsRecentPointer = index;
+    globals.tabsRecentPointer[currentWindowId] = index;
     return;
   }
 });
