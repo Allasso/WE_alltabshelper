@@ -209,7 +209,6 @@ ContextMenu.prototype = {
         }
         break;
       case 'contextmenu':
-dump("XXX : contextmenu\n");
         this.display({ x: e.clientX, y: e.clientY });
         e.preventDefault();
         break;

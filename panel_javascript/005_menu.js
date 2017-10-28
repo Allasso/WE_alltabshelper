@@ -749,7 +749,7 @@ e.menuitem = menuitem;
   frozenHoveredItem: null,
 
   freezeHoveredItem(unfreeze) {
-    if (unfreeze && this.frozenHoveredItem) {
+    if (unfreeze) {
       this.menuCntnr.classList.remove("opti_menufrozen");
       this.frozenHoveredItem.classList.remove("opti_frozen_menuitem");
       this.frozenHoveredItem = null;
