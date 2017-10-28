@@ -26,6 +26,7 @@ let PINNED_TABS_OVERLAY;
 let DRAG_SCROLL_ASSISTANT;
 let THIS_WINDOW_ID;
 let FAYT = false;
+let PREF_SHOW_REMAINING_TABS_IN_RECENT = false;
 
 let main = {
   titlebarHeight: 24,

@@ -84,23 +84,26 @@ let menuModes = {
         CURRENT_MENU_DATA.push(data);
       }
     }
-    // Put a divider after the last recent item.
-    CURRENT_MENU_DATA[CURRENT_MENU_DATA.length - 1]
-        .userDefined.classes.divideritem = true;
+    
+    if (PREF_SHOW_REMAINING_TABS_IN_RECENT) {
+      // Put a divider after the last recent item.
+      CURRENT_MENU_DATA[CURRENT_MENU_DATA.length - 1]
+          .userDefined.classes.divideritem = true;
 
-    // Set remaining items in tabs order, skipping the tabId's we already listed.
-    let len2 = CURRENT_TABS_LIST.length;
-    for (let i=0;i<len2;i++) {
-      let tabId = CURRENT_TABS_LIST[i];
-      if (tabsRecentHash[tabId]) {
-        continue;
+      // Set remaining items in tabs order, skipping the tabId's we already listed.
+      let len2 = CURRENT_TABS_LIST.length;
+      for (let i=0;i<len2;i++) {
+        let tabId = CURRENT_TABS_LIST[i];
+        if (tabsRecentHash[tabId]) {
+          continue;
+        }
+        let data = CURRENT_TABS_HASH[tabId];
+
+        delete(data.userDefined.classes.divideritem);
+        delete(data.userDefined.classes.searchresultmenuitem);
+
+        CURRENT_MENU_DATA.push(data);
       }
-      let data = CURRENT_TABS_HASH[tabId];
-
-      delete(data.userDefined.classes.divideritem);
-      delete(data.userDefined.classes.searchresultmenuitem);
-
-      CURRENT_MENU_DATA.push(data);
     }
 
     OPTI_MENU.updateMenu(manage.sanitizeMenuTextInCurrentMenuData(CURRENT_MENU_DATA));

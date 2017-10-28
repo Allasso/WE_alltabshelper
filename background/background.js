@@ -57,18 +57,15 @@ function updateTabsRecent(tabId, windowId, remove) {
     delete(inhibitTabsRecentUpdate);
     return;
   }
-dump("XXX : updateTabsRecent : tabId : "+tabId+"    windowId : "+windowId+"\n");
+
+  // Always reset the pointer.
+  globals.tabsRecentPointer = 0;
+
   if (!globals.tabsRecentIds[windowId]) {
     globals.tabsRecentIds[windowId] = [tabId];
     return;
   }
 
-dump("    XXX : -----------\n");
-for (let newTabId of globals.tabsRecentIds[windowId]) {
-    dump("    XXX : updateTabsRecent : tabId : "+newTabId+"\n");
-}
-
-dump("    XXX : -----------\n");
   let newRecents = [];
   let foundIds = {};
   let tabsRecentIds = globals.tabsRecentIds[windowId];
@@ -88,11 +85,6 @@ dump("    XXX : -----------\n");
   }
 
   globals.tabsRecentIds[windowId] = newRecents;
-
-dump("    XXX : -----------\n");
-for (let newTabId of globals.tabsRecentIds[windowId]) {
-    dump("    XXX : updateTabsRecent : tabId : "+newTabId+"\n");
-}
 }
 
 browser.runtime.onMessage.addListener((request) => {
@@ -125,11 +117,13 @@ browser.commands.onCommand.addListener(async function(command) {
     let dir = command == "tabs-history-back" ? 1 : -1
     let winData = await browser.windows.getCurrent();
     currentWindowId = winData.id;
-dump("XXX : tabs-history-back : globals.currentWindowId : "+currentWindowId+"\n");
     let tabsRecentIds = globals.tabsRecentIds[currentWindowId];
+
     let index = globals.tabsRecentPointer + dir;
-    index = Math.min(index, tabsRecentIds.length - 1);
-    index = Math.max(index, 0);
+    if (index > tabsRecentIds.length - 1 || index < 0) {
+      return;
+    }
+
     let targetId = tabsRecentIds[index];
 dump("XXX : tabs-history-back : targetId : "+targetId+"\n");
     inhibitTabsRecentUpdate = targetId;
