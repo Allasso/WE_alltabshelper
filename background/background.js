@@ -1,7 +1,6 @@
 globals = {
-  currentWindowId: null,
-  tabsRecentIdsMap: {},
   tabsRecentIds: {},
+  tabsRecentPointer: 0,
   menuModesMap: {},
   recordedTabIds: "",
   resultsContextLength: 40,
@@ -19,18 +18,6 @@ background = {
 
   getMenuMode(currentWindowId) {
     return globals.menuModesMap[currentWindowId] || 0;
-  },
-
-  recordRecentTabsState(currentWindowId, state) {
-dump("XXX : recordRecentTabsState\n");
-    globals.tabsRecentIdsMap[currentWindowId] = JSON.parse(state);
-  },
-
-  getRecentTabsState(currentWindowId) {
-    if (!globals.tabsRecentIdsMap[currentWindowId]) {
-      globals.tabsRecentIdsMap[currentWindowId] = [];
-    }
-    return JSON.stringify(globals.tabsRecentIdsMap[currentWindowId]);
   },
 
   recordTabIds(tabIdsData) {
@@ -63,7 +50,13 @@ dump("XXX : recordRecentTabsState\n");
   },
 }
 
+let inhibitTabsRecentUpdate;
+
 function updateTabsRecent(tabId, windowId, remove) {
+  if (tabId == inhibitTabsRecentUpdate) {
+    delete(inhibitTabsRecentUpdate);
+    return;
+  }
 dump("XXX : updateTabsRecent : tabId : "+tabId+"    windowId : "+windowId+"\n");
   if (!globals.tabsRecentIds[windowId]) {
     globals.tabsRecentIds[windowId] = [tabId];
@@ -127,14 +120,21 @@ browser.tabs.query({currentWindow: true, active: true}).then(tabs => {
   updateTabsRecent(tab.id, tab.windowId);
 });
 
-browser.commands.onCommand.addListener(function(command) {
-dump("XXX : command\n");
-  if (command == "tabs-history-back") {
-    dump("XXX : tabs-history-back\n");
-    return;
-  }
-  if (command == "tabs-history-forward") {
-    dump("XXX : tabs-history-forward\n");
+browser.commands.onCommand.addListener(async function(command) {
+  if (command == "tabs-history-back" || command == "tabs-history-forward") {
+    let dir = command == "tabs-history-back" ? 1 : -1
+    let winData = await browser.windows.getCurrent();
+    currentWindowId = winData.id;
+dump("XXX : tabs-history-back : globals.currentWindowId : "+currentWindowId+"\n");
+    let tabsRecentIds = globals.tabsRecentIds[currentWindowId];
+    let index = globals.tabsRecentPointer + dir;
+    index = Math.min(index, tabsRecentIds.length - 1);
+    index = Math.max(index, 0);
+    let targetId = tabsRecentIds[index];
+dump("XXX : tabs-history-back : targetId : "+targetId+"\n");
+    inhibitTabsRecentUpdate = targetId;
+    browser.tabs.update(targetId, {active: true});
+    globals.tabsRecentPointer = index;
     return;
   }
 });
