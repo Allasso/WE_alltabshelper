@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "All Tabs Helper WE",
-  "version": "1.0",
+  "version": "1.2",
   "description": "All Tabs Helper - WebExtensions version",
   "homepage_url": "http://kevinallasso.org",
   "icons": {
@@ -41,5 +41,23 @@
     },
     "default_title": "All Tabs Helper",
     "default_panel": "panel_html/sidebarAction.html"
+  },
+  "options_ui": {
+    "page": "options_html/options.html",
+    "browser_style": true
+  },
+  "commands": {
+    "tabs-history-back": {
+      "suggested_key": {
+        "default": "Alt+Shift+Left"
+      },
+      "description": "Go back one in tabs history"
+    },
+    "tabs-history-forward": {
+      "suggested_key": {
+        "default": "Alt+Shift+Right"
+      },
+      "description": "Go forward one in tabs history"
+    }
   }
 }

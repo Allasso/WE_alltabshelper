@@ -11,43 +11,6 @@ let tabs = {
     }
   },
 
-  // Persistence for updateTabsRecent.
-  accumUpdateTabsRecentRemove: {},
-  accumUpdateTabsRecentAdd: [],
-
-  updateTabsRecent(tabId, remove, accumulate) {
-    if (tabId) {
-      if (remove) {
-        this.accumUpdateTabsRecentRemove[tabId] = true;
-      } else {
-        this.accumUpdateTabsRecentAdd.unshift(tabId);
-      }
-    }
-
-    if (accumulate) {
-      return;
-    }
-
-    let nominalArr = this.accumUpdateTabsRecentAdd.concat(globals.tabsRecentIdsArr);
-    let dupsHash = {};
-    let arr = [];
-    for (let i = 0; i < nominalArr.length; i++) {
-      let id = nominalArr[i];
-      if (!this.accumUpdateTabsRecentRemove[id] && !dupsHash[id]) {
-        arr.push(id);
-        // Prevent duplicate entries down the line.
-        dupsHash[id] = true;
-      }
-    }
-
-    this.accumUpdateTabsRecentRemove = {};
-    this.accumUpdateTabsRecentAdd = [];
-    globals.tabsRecentIdsArr = arr;
-
-    // TODO: Remove if/when bug 1398625 gets fixed.
-    BPW.recordRecentTabsState(THIS_WINDOW_ID, JSON.stringify(globals.tabsRecentIdsArr));
-  },
-
   // Properties for updateUIAccumulator.
   isUpdateMenuGateTimerRunning: false,
   tasksUpdateMenuGate: {},
@@ -80,6 +43,7 @@ let tabs = {
       let { doUpdateCurrentTabsData,
             doRefreshCurrentMenu,
             doUpdateMenu,
+            doUpdateTabsCount,
             typeUpdateTabsRecent } = tasks;
 
       // Set flag(s)
@@ -93,14 +57,8 @@ let tabs = {
       if (doUpdateMenu) {
         this.tasksUpdateMenuGate.flagUpdateMenu = true;
       }
-      // In addition to setting flag, accumulate tabs recent data.
-      if (typeof(typeUpdateTabsRecent) == "boolean") {
-        // Passing `true` for arg[2] tells updateTabsRecent to accumulate update
-        // data without actually updating.  When updateUIAccumulator dumps its
-        // load we'll call updateTabsRecent to finally do the update.  Boolean
-        // value of typeUpdateTabsRecent tells whether or not to remove from history.
-        this.updateTabsRecent(tabId, typeUpdateTabsRecent, true)
-        this.tasksUpdateMenuGate.flagUpdateTabsRecent = true;
+      if (doUpdateTabsCount) {
+        this.tasksUpdateMenuGate.flagUpdateTabsCount = true;
       }
 
       if (!fireImmediately) {
@@ -122,38 +80,25 @@ let tabs = {
     // Update stuff according to accumulated flags.
 
     let { flagUpdateCurrentTabsData,
-          flagUpdateTabsRecent,
           flagRefreshCurrentMenu,
-          flagUpdateMenu } = this.tasksUpdateMenuGate;
-
-dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTabsRecent+"    "+flagRefreshCurrentMenu+"    "+flagUpdateMenu+"\n");
+          flagUpdateMenu,
+          flagUpdateTabsCount } = this.tasksUpdateMenuGate;
 
     // If we need to update current tabs data, we must do that before any menu updates.
     if (flagUpdateCurrentTabsData) {
       await manage.updateCurrentTabsData();
     }
-    if (flagUpdateTabsRecent) {
-      this.updateTabsRecent();
+    if (flagUpdateTabsCount) {
+      this.updateTabsCount();
     }
 
     // Menu updating calls, run these two last.  Both are mutually exclusive, as
     // menuModes.refreshCurrentMenu() will have run OPTI_MENU.updateMenu();
     if (flagRefreshCurrentMenu) {
       menuModes.refreshCurrentMenu();
+    } else if (flagUpdateMenu) {
+      OPTI_MENU.updateMenu(manage.sanitizeMenuTextInCurrentMenuData(CURRENT_MENU_DATA));
     }
-    if (flagUpdateMenu && !flagRefreshCurrentMenu) {
-      OPTI_MENU.updateMenu(CURRENT_MENU_DATA);
-    }
-  },
-
-  lastActivatedTabId: null,
-
-  async newTabNextToSelected(tabId) {
-    if (!tabs.lastActivatedTabId) {
-      return;
-    }
-    let lastActivatedTab = await browser.tabs.get(tabs.lastActivatedTabId);
-    await browser.tabs.move([tabId], { index : lastActivatedTab.index + 1 });
   },
 
   tabsOnActivatedListener(data) {
@@ -162,15 +107,15 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
       return;
     }
 
-//dump("tabsOnActivatedListener : tabId : "+data.tabId+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"\n");
-
     let tabId = data.tabId;
-    tabs.lastActivatedTabId = tabId;
 
     let fireImmediately = !tabs.updateForceTabsOnActivated[tabId];
     if (!fireImmediately) {
       delete(tabs.updateForceTabsOnActivated[tabId]);
     }
+
+    // Explicitly update the tabs hash discarded class.
+    CURRENT_TABS_HASH[tabId].userDefined.classes.tabdiscarded = false;
 
     tabs._updateTabsMenuActivated(tabId);
 
@@ -178,9 +123,14 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
     // knows that there is a tabs recent update of some kind.
     let tasks = { doRefreshCurrentMenu: menuModes.menuMode == 1,
                   doUpdateMenu: menuModes.menuMode != 1,
+                  doUpdateTabsCount: true,
                   typeUpdateTabsRecent: false };
 
-    tabs.updateUIAccumulator({ tasks, tabId, fireImmediately })
+    tabs.updateUIAccumulator({ tasks, tabId, fireImmediately });
+
+    if (menuModes.menuMode === 0) {
+      PINNED_TABS_OVERLAY.updatePinnedTabsOverlay();
+    }
   },
 
   tabsOnCreatedListener(tab) {
@@ -188,10 +138,6 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
     if (tab.windowId != THIS_WINDOW_ID) {
       return;
     }
-
-//dump("tabsOnCreatedListener : tabId : "+tab.id+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"\n");
-
-    tabs.newTabNextToSelected(tab.id);
 
     // Simple one-off event, we just manipulate the data store directly.
     CURRENT_TABS_HASH[tab.id] = { menutextstr : tab.title || tab.url,
@@ -210,14 +156,18 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
                                     }
                                   }
                                 };
+
     CURRENT_TABS_LIST.splice(tab.index, 0, tab.id);
+    tabs.updateTabsCount();
+
     // If tab is active, tabsOnActivated gets sent before tabsOnCreated,so we
     // must explicitly call _updateTabsMenuActivated() now.
     if (tab.active) {
       tabs._updateTabsMenuActivated(tab.id);
     }
 
-    // Mass tab creation is unlikely, so just update the current menu directly.
+    // Mass tab creation is unlikely, so bypass the accumulator and update
+    // the current menu directly.
     menuModes.refreshCurrentMenu();
   },
 
@@ -226,8 +176,6 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
     if (data.windowId != THIS_WINDOW_ID) {
       return;
     }
-
-//dump("tabsOnRemovedListener : tabId : "+tabId+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"\n");
 
     let fireImmediately = !tabs.updateForceTabsOnRemoved[tabId];
     if (!fireImmediately) {
@@ -243,6 +191,7 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
       }
     }
     CURRENT_TABS_LIST = arr;
+    tabs.updateTabsCount();
 
     let tasks = { typeUpdateTabsRecent: true,
                   doRefreshCurrentMenu: true };
@@ -253,35 +202,30 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
   tabMovedFromAnotherWindowIds: {},
 
   tabsOnMovedListener(tabId, data) {
-//dump("tabsOnMovedListener XXXXXXX : tabId : "+tabId+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"    tab in this window? : "+(data.windowId == THIS_WINDOW_ID)+"\n");
     // Moved tab is from another window.
     if (data.windowId != THIS_WINDOW_ID) {
       return;
     }
 
-//dump("tabsOnMovedListener : tabId : "+tabId+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"\n");
-
-//CURRENT_TABS_HASH[tabId].userDefined.properties.index = data.index;
     let tasks = { doUpdateCurrentTabsData: true,
                   doRefreshCurrentMenu: true };
     tabs.updateUIAccumulator({ tasks })
   },
 
   tabsOnDetachedListener(tabId, info) {
-//dump("tabsOnDetachedListener WWWWWWW : tabId : "+tabId+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"\n");
-
     let tasks = { doUpdateCurrentTabsData: true,
                   doRefreshCurrentMenu: true };
     tabs.updateUIAccumulator({ tasks })
   },
 
-  tabsOnUpdatedListener(tabId, data) {
+  async tabsOnUpdatedListener(tabId, data) {
+    // Unfortunately, windowId is not available from data.
+    let tab = await browser.tabs.get(tabId);
+
     // Update is from tab in another window.
-    if (data.windowId != THIS_WINDOW_ID) {
+    if (tab.windowId != THIS_WINDOW_ID) {
       return;
     }
-
-//dump("tabsOnUpdatedListener : tabId : "+tabId+"    THIS_WINDOW_ID : "+THIS_WINDOW_ID+"\n");
 
     let menuData = manage.getCurrentMenuDataAtTabId(tabId);
     if (!menuData) {
@@ -290,11 +234,20 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
 
     let updated = false;
 
-    if (data.url && data.url != CURRENT_TABS_HASH[tabId].userDefined.properties.url) {
+    if ("pinned" in data) {
+      CURRENT_TABS_HASH[tabId].userDefined.classes.tabpinned = data.pinned;
+      if (menuModes.menuMode === 0) {
+        PINNED_TABS_OVERLAY.updatePinnedTabsOverlay();
+      }
+      updated = true;
+    }
+
+    if ("url" in data && data.url != CURRENT_TABS_HASH[tabId].userDefined.properties.url) {
       CURRENT_TABS_HASH[tabId].userDefined.properties.url = data.url;
       updated = true;
     }
-    if (data.title && data.title != CURRENT_TABS_HASH[tabId].menutextstr) {
+
+    if ("title" in data && data.title != CURRENT_TABS_HASH[tabId].menutextstr) {
       CURRENT_TABS_HASH[tabId].menutextstr = data.title;
       CURRENT_TABS_HASH[tabId].userDefined.properties.tabtitle = data.title;
       updated = true;
@@ -310,22 +263,44 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
       CURRENT_TABS_HASH[tabId].menuiconurl1 = LOADING_FAVICON_URL;
       updated = true;
     }
-    if (data.status !== undefined) {
+    
+    if ("status" in data) {
       if (data.status != "loading" && CURRENT_TABS_HASH[tabId].isLastStatusLoading) {
-        CURRENT_TABS_HASH[tabId].menuiconurl1 = data.favIconUrl || CURRENT_TABS_HASH[tabId].lastFavIconUrl;
+        // TODO: The test is a hack to get rid of the spinner for now, as the
+        // mozapps generic icon doesn't seem to get applied, perhaps because
+        // it's a chrome:// url?
+        CURRENT_TABS_HASH[tabId].menuiconurl1 =
+          CURRENT_TABS_HASH[tabId].lastFavIconUrl.indexOf("extensionGeneric-16.svg") > -1 ?
+          "" : CURRENT_TABS_HASH[tabId].lastFavIconUrl;
         updated = true;
       }
       CURRENT_TABS_HASH[tabId].isLastStatusLoading = data.status == "loading";
     }
 
     // Don't update for this, just keep track.
-    if (data.favIconUrl) {
+    if ("favIconUrl" in data) {
       CURRENT_TABS_HASH[tabId].lastFavIconUrl = data.favIconUrl;
     }
 
     if (updated) {
-      OPTI_MENU.updateSingleMenuItem(CURRENT_MENU_DATA, menuData.index);
+      // TODO: Find a more efficient way of doing this, since we're only updating
+      // a single item.
+      OPTI_MENU.updateSingleMenuItem
+        (manage.sanitizeMenuTextInCurrentMenuData(CURRENT_MENU_DATA), menuData.index);
     }
+  },
+
+  updateTabsCount() {
+    // We're not waiting on anything here.
+    browser.tabs.query({currentWindow: true}).then(tabsList => {
+      let activeTabsCount = 0;
+      for (let tab of tabsList) {
+        if (!tab.discarded) {
+          activeTabsCount++
+        }
+      }
+      tabsCountContainer.textContent = tabsList.length + "/" + activeTabsCount;
+    });
   },
 
   /**
@@ -423,7 +398,7 @@ dump("updateUIAccumulator PASS : "+flagUpdateCurrentTabsData+"    "+flagUpdateTa
    *  tabIds : list of tab ids correlating to tabs to close
    */
   async closeSelectedTabs(tabIds) {
-dump("closeSelectedTabs : "+tabIds+"\n");
+    browser.tabs.remove(tabIds);
   },
 
   /**
@@ -432,7 +407,7 @@ dump("closeSelectedTabs : "+tabIds+"\n");
    *  tabIds : list of tab ids correlating to tabs to discard
    */
   async discardSelectedTabs(tabIds) {
-dump("discardSelectedTabs : "+tabIds+"\n");
+    browser.expsessionstore.discardTabs(tabIds);
   },
 
   /**
@@ -441,7 +416,6 @@ dump("discardSelectedTabs : "+tabIds+"\n");
    *  tabIds : list of tab ids correlating to tabs to discard
    */
   async moveSelectedTabs(tabIds, targetTabId) {
-dump("discardSelectedTabs : "+tabIds+"    "+targetTabId+"\n");
     this.moveTabs(tabIds, targetTabId);
   },
 
@@ -452,7 +426,6 @@ dump("discardSelectedTabs : "+tabIds+"    "+targetTabId+"\n");
    *  in a list to be moved.
    */
   async cutSelectedTabs(tabIds) {
-dump("cutSelectedTabs : "+tabIds+"\n");
     BPW.recordTabIds(JSON.stringify({ windowId: THIS_WINDOW_ID, tabIds }));
   },
 
@@ -463,7 +436,6 @@ dump("cutSelectedTabs : "+tabIds+"\n");
    */
   async pasteCutTabs(index) {
     let { windowId, tabIds } = JSON.parse(BPW.getRecordedTabIds());
-dump("pasteCutTabs : index : "+index+"    windowId : "+windowId+"    tabIds : "+tabIds+"\n");
 
     if (!tabIds || ! tabIds.length) {
       return;

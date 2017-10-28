@@ -48,13 +48,15 @@ let menuModes = {
 
       CURRENT_MENU_DATA.push(data);
     }
-    OPTI_MENU.updateMenu(CURRENT_MENU_DATA);
+
+    OPTI_MENU.updateMenu(manage.sanitizeMenuTextInCurrentMenuData(CURRENT_MENU_DATA));
+    PINNED_TABS_OVERLAY.updatePinnedTabsOverlay();
   },
 
   // "RECENT" MENU
   setRecentMenu() {
     CURRENT_MENU_DATA = [];
-    let tRecent = globals.tabsRecentIdsArr;
+    let tRecent = BPG.tabsRecentIds[THIS_WINDOW_ID];
 
     if (!tRecent.length) {
       // If there is nothing in tRecent, most likely it is because we just
@@ -78,6 +80,7 @@ let menuModes = {
       if (data) {
         delete(data.userDefined.classes.divideritem);
         delete(data.userDefined.classes.searchresultmenuitem);
+
         CURRENT_MENU_DATA.push(data);
       }
     }
@@ -93,16 +96,19 @@ let menuModes = {
         continue;
       }
       let data = CURRENT_TABS_HASH[tabId];
+
       delete(data.userDefined.classes.divideritem);
       delete(data.userDefined.classes.searchresultmenuitem);
+
       CURRENT_MENU_DATA.push(data);
     }
-    OPTI_MENU.updateMenu(CURRENT_MENU_DATA);
+
+    OPTI_MENU.updateMenu(manage.sanitizeMenuTextInCurrentMenuData(CURRENT_MENU_DATA));
+    PINNED_TABS_OVERLAY.updatePinnedTabsOverlay(true);
   },
 
   // "DUPS" MENU
   setDupsMenu() {
-    CURRENT_MENU_DATA = [];
     let dupsHash = {};
     let dupsFoundArray = [];
 
@@ -124,11 +130,14 @@ let menuModes = {
     if (!dupsFoundArray.length) {
       // No dups found.  Display message, update menu (to blank) and return.
       this.displayMessage("No dups found");
-      OPTI_MENU.updateMenu(CURRENT_MENU_DATA);
+      // TODO: Do we need to update here?
+      OPTI_MENU.updateMenu([]);
       return;
     }
 
+    CURRENT_MENU_DATA = [];
     let miCount = 0;
+
     for (let urlbase of dupsFoundArray) {
       let dups = dupsHash[urlbase];
       let len = dups.length;
@@ -140,12 +149,16 @@ let menuModes = {
         CURRENT_MENU_DATA.push(data);
       }
     }
-    OPTI_MENU.updateMenu(CURRENT_MENU_DATA);
+
+    OPTI_MENU.updateMenu(manage.sanitizeMenuTextInCurrentMenuData(CURRENT_MENU_DATA));
+    PINNED_TABS_OVERLAY.updatePinnedTabsOverlay(true);
   },
 
   // "SEARCH" MENU
   setSearchMenu() {
     search.initSearch();
+
+    PINNED_TABS_OVERLAY.updatePinnedTabsOverlay(true);
   },
 
   /////////////////////////
@@ -153,7 +166,11 @@ let menuModes = {
 
   refreshCurrentMenu() {
     if (this.menuMode == 0) {
-      this.setAllMenu();
+      if (search.filterMode) {
+        search.filterItems();
+      } else {
+        this.setAllMenu();
+      }
     } else if (this.menuMode == 1) {
       this.setRecentMenu();
     } else if (this.menuMode == 2) {
@@ -168,13 +185,14 @@ let menuModes = {
   },
 
   modeChangeAll(force) {
-dump("modeChangeAll : "+force+"\n");
     // If there is a value in searchInput, clear the value and force an update
     // to show all tabs.
     if (searchInput.value) {
       searchInput.value = "";
       force = true;
     }
+    
+    search.filterMode = false;
 
     let prevMenuMode = this.menuMode;
     this.menuMode = 0;
@@ -189,7 +207,6 @@ dump("modeChangeAll : "+force+"\n");
   },
 
   modeChangeRecent(force) {
-dump("modeChangeRecent : "+force+"\n");
     let prevMenuMode = this.menuMode;
     this.menuMode = 1;
     this.setButtonAppearance("recent");
@@ -228,11 +245,12 @@ dump("modeChangeRecent : "+force+"\n");
     }
   },
 
-  setChangeModeByModeIndex(mode, execute) {
+  async setChangeModeByModeIndex(mode, execute) {
     // Rapid-fire suppression.
     // (uncomment for diagnostic override:)
     //execute = true;
 
+    // TODO: Aren't we handling this all in the listeners now???
     if (!execute) {
       if (!this.isSetChangeModeTimerRunning) {
         let _this = this;
@@ -249,20 +267,40 @@ dump("modeChangeRecent : "+force+"\n");
       return;
     }
     this.lastSetChangeMode = undefined;
-
+    
     // If no args do a refresh;
     let refresh = typeof(mode) != "number";
+
+    let changingModes = !refresh && mode != this.menuMode;
+
     if (refresh) {
       mode = this.menuMode;
     }
+    
+    if (changingModes) {
+      if (this.menuMode === 0) {
+        BPG.allTabsMenuScrollPos = OPTI_MENU.getScrollPosition();
+      } else if (this.menuMode == 3) {
+        BPG.searchMenuScrollPos = OPTI_MENU.getScrollPosition();
+      }
+    }
+   
     if (mode == 0) {
       this.modeChangeAll(refresh);
+      OPTI_MENU.setScrollPosition(BPG.allTabsMenuScrollPos);
     } else if (mode == 1) {
       this.modeChangeRecent(refresh);
+      tabsMenuCntnr.scrollTop = 0;
     } else if (mode == 2) {
       this.modeChangeDups(refresh);
+      tabsMenuCntnr.scrollTop = 0;
     } else if (mode == 3) {
+      searchInput.value = BPG.lastSearchValue || "";
       this.modeChangeSearch(refresh);
+      // TODO: Hack city....
+      setTimeout(() => {
+        OPTI_MENU.setScrollPosition(BPG.searchMenuScrollPos);
+      }, 500);
     }
   },
 }

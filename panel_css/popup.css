@@ -60,14 +60,41 @@ html, body {
   text-align: center;
 }
 
-#tabsmenucontainer > .divideritem {
+.divideritem {
   border-bottom: 4px solid #999;
 }
 
-#tabsmenucontainer > .activetab .opti_menutext  {
+.activetab .opti_menutext  {
   font-weight: bold;
   font-size: 13px;
   margin-top: 2px;
+}
+
+.tabdiscarded * {
+  opacity: 0.6;
+}
+
+.tabpinned {
+  background-color: #ddddea;
+}
+
+#tabscount {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100000;
+  font-family: "Helvetica";
+  font-size: 11px;
+  padding: 3px 2px 2px 3px;
+}
+
+#pinnedtabsoverlay {
+  position: fixed;
+  left: 0;
+  top: 30px;
+  z-index: 100000;
+  font-family: "Helvetica";
+  font-size: 13px;
 }
 
 .searchresult {

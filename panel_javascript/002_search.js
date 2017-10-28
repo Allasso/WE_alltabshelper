@@ -1,12 +1,15 @@
 let search = {
   searchInputTimer: null,
-  FindInitedTabs: {},
   searchResultsCache: {},
   currentlyDisplayedSearchResults: {},
   SEARCH_INPUT_TIMEOUT: 500,
+  filterMode: false,
 
   filterItems() {
     let value = searchInput.value.trim();
+
+    PINNED_TABS_OVERLAY.updatePinnedTabsOverlay(!!value);
+
     let valueRegex = new RegExp(value, 'i');
 
     CURRENT_MENU_DATA = [];
@@ -14,12 +17,14 @@ let search = {
     for (let i=0;i<len;i++) {
       let tabId = CURRENT_TABS_LIST[i];
       let data = CURRENT_TABS_HASH[tabId];
-      if (valueRegex.test(data.userDefined.properties.tabtitle)) {
+      if (valueRegex.test(data.userDefined.properties.tabtitle) ||
+          valueRegex.test(data.userDefined.properties.url)) {
         delete(data.userDefined.classes.divideritem);
         CURRENT_MENU_DATA.push(data);
       }
     }
-    OPTI_MENU.updateMenu(CURRENT_MENU_DATA);
+    OPTI_MENU.updateMenu(manage.sanitizeMenuTextInCurrentMenuData(CURRENT_MENU_DATA));
+    this.filterMode = true;
   },
 
   lastSearchValue: undefined,
@@ -31,11 +36,12 @@ let search = {
 
     let value = searchInput.value.trim();
     this.lastSearchValue = value;
+    BPG.lastSearchValue = value;
 
     if (value.length < 2) {
       messageContainer.textContent = "Please enter 3 or more characters";
       messageContainer.style.display = "block";
-      OPTI_MENU.updateMenu(CURRENT_MENU_DATA);
+      OPTI_MENU.updateMenu([]);
       return;
     }
     this.searchResultsHash = {};
@@ -49,6 +55,7 @@ let search = {
     if (menuModes.menuMode == 1 || menuModes.menuMode == 2) {
       return;
     }
+
     clearTimeout(search.searchInputTimer);
     this.searchInputTimer = setTimeout(function() {
       if (menuModes.menuMode == 0) {
@@ -105,7 +112,7 @@ let search = {
           // searchable anyway.  Simply ignore.
         }
       }
-      if (text && text.indexOf(value) > -1) {
+      if (text && text.toLowerCase().indexOf(value.toLowerCase()) > -1) {
         foundTextHash[tab.id] = true;
         resultFound = true;
       }
@@ -136,7 +143,7 @@ let search = {
         CURRENT_MENU_DATA.push(data);
       }
     }
-    OPTI_MENU.updateMenu(CURRENT_MENU_DATA);
+    OPTI_MENU.updateMenu(manage.sanitizeMenuTextInCurrentMenuData(CURRENT_MENU_DATA));
   },
 
   setSearchResultsFoundMessage(resultFound) {
@@ -186,7 +193,7 @@ let search = {
         this.currentlyDisplayedSearchResults.tabId = tabId;
         this.currentlyDisplayedSearchResults.menuitem = menuitem;
       }
-      OPTI_MENU.updateMenu(CURRENT_MENU_DATA);
+      OPTI_MENU.updateMenu(manage.sanitizeMenuTextInCurrentMenuData(CURRENT_MENU_DATA));
     }
   },
 
@@ -208,9 +215,15 @@ let search = {
 
     for (let i = 0; i < len; i++) {
       let result = resultList[i];
+      // Wrap query string with span tag for styling.  HTML syntax is encoded
+      // so sanitizer won't sanitize but instead replace with appropriate syntax.
       // opti_menuitem_descendent class ensures that mouse events will be
       // associated with menuitem mouse events in OptiMenu.
-      let resultHTML = result[0]+"<span class='searchresultkeyword opti_menuitem_descendent'>"+result[1]+"</span>"+result[2];
+      let resultHTML = result[0]+
+                       "HTMLLESSTHANspan class='searchresultkeyword opti_menuitem_descendent'HTMLGREATERTHAN"+
+                       result[1]+
+                       "HTMLLESSTHAN/spanHTMLGREATERTHAN"+
+                       result[2];
       results.push(this.defineSearchResultMenuitemProperties(resultHTML, tabId, i))
     }
 
@@ -312,17 +325,14 @@ let search = {
 
   async findAndHighlight(tabId, rangeIndex) {
     let includeRangeData = false;
-    let includeRectData = true;
-
-    //let searchParams = { this.lastSearchValue,  }
-
     let hlmode = BPG.findHighlightingMode;
-hlmode = 3;
+    let includeRectData = hlmode != 1;
 
     if (hlmode == 3) {
       await browser.tabs.sendMessage(tabId, { topic: "alltabshelper:clearCustomHighlighting" });
     }
 
+    // TODO: Cache results.
     this.searchResultsData =
       await browser.find.find(this.lastSearchValue,
                               { tabId, includeRangeData, includeRectData });
@@ -333,7 +343,6 @@ hlmode = 3;
       await browser.find.highlightResults({ tabId });
     }
 
-    this.FindInitedTabs[tabId] = true;
     let data = this.searchResultsData;
 
     if (includeRangeData) {
@@ -344,7 +353,7 @@ hlmode = 3;
         rangeData: data.rangeData
       });
     }
-    if (includeRectData && (hlmode != 1)) {
+    if (includeRectData) {
       let topic = hlmode == 4 ? "alltabshelper:findBarTweakAnimate" : "alltabshelper:setCustomHighlighting";
       let overlay = hlmode == 3;
       await browser.tabs.sendMessage(tabId,

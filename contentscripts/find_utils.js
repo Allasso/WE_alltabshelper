@@ -261,3 +261,7 @@ browser.runtime.onMessage.addListener(
     }
   }
 );
+
+window.addEventListener("click", () => {
+  browser.runtime.sendMessage({topic: "alltabshelper:clearNativeHighlighting"});
+});

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="../options_css/options.css"/>
+    <title>All Tabs Helper - Options</title>
+  </head>
+
+<body>
+  <div id="heading">Preferences</div>
+  <!-- ids for pref input elements must equal pref name -->
+  <div class="par">
+    <input id="pref_bool_fayt" type="checkbox" />&nbsp;Typing initiates filter/search</input><br />
+  </div>
+  <div class="par">
+    <input id="pref_bool_tab_next_to_current" type="checkbox" />&nbsp;Open new tab next to current</input><br />
+  </div>
+  <div class="par" style="margin-left: 25px">
+    (Note: This feature may have unexpected UI behavior when compared to the same feature in the legacy version of this addon.
+    Namely, the tabstrip may scroll in unexpected ways in some cases.  This is due to the lack of a suitable API.  Bug 1344749* has been filed to correct this.
+  </div>
+  <div class="par" style="margin-left: 25px">
+    *https://bugzilla.mozilla.org/show_bug.cgi?id=1344749)
+  </div>
+
+  <script src="../options_javascript/options.js"></script>
+</body>
+
+</html>

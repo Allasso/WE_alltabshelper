@@ -1,3 +1,68 @@
+/*
+ * OptiMenu API
+ *
+ * Optimized menu API which uses minimal DOM resources.
+ *
+ * A (theoretically) infinite number of menuitems can be displayed using only
+ * enough DOM elements to fill the displayed view.
+ *
+ * It is up to the user to provide the container in which the menu lives.  This
+ * would normally be a 'div' element somewhere in the document.
+ *
+ * Menu is updated by supplying an array of objects which provide data to
+ * display menuitems.  Each object may contain the following properties which
+ * will determine how the menuitems are displayed:
+ *
+ *   menutextstr - the text displayed in the menuitem
+ *   menuiconurl1 - url of the icon which will be displayed preceding the text (prefix icon)
+ *   menuiconurl2 - url of the icon which will be displayed succeeding the text (suffix icon)
+ *   noPrefixIcon - flag which collapses the prefix icon
+ *   noSuffixIcon - flag which collapses the suffix icon
+ *   isSelected - flag which displays the menuitem as selected
+ *
+ * There is also a userDefined property which can contain a subset of properties
+ * which can be set on each menuitems for user access, such as custom displaying
+ * of the menuitem, feedback when it is clicked, etc.  The properties are:
+ *
+ *   userDefined.properties - javascript properties set directly on the menuitem element
+ *   userDefined.attributes - element attributes set using setAttribute()
+ *   userDefined.classes - css classes set using the classList API
+ *
+ * Not setting properties for a menu update which were previously set will result
+ * in the removal of those properties.  Not setting userDefined.attributes or
+ * userDefined.classes which were previously set will also result in the removal
+ * of those attributes or classes.
+ *
+ * The API includes the following built-in functionality:
+ *
+ *   Highlighting of menuitems as mouse hovers over them.
+ *   Select menuitems using ctrl/cmd + click or shift + click which will leave
+ *     the menuitems in highlighted state. (Selecting one or more menuitems
+ *     will disable mouse hovering highlighting.)
+ *   Drag and drop of selected menuitems.
+ *   Activity listeners which can be registered for drag and drop, activation of
+ *     prefix or suffix icon, and general mouse events.
+ *   Detection of last hovered menuitem (useful for implementing context menu actions).
+ *
+ * All properties, classes and attributes set on menuitems for the native functionality
+ * of the menu are prefixed with 'opti_'.
+ *
+ * This API must be used with the companion CSS file for proper menu display and behavior.
+ */
+
+/*
+ * OptiMenu constuctor
+ *
+ * @param {DOM element} menuCntnr - the container in which the menu lives.
+ *   Typically a 'div' element.
+ * @param {Chrome window} win - the `window` object where the menu lives.
+ * @param {boolean} selectedPlusHover optional - setting this to `true` will
+ *   provide menuitem highlighting for hovered items even after items are
+ *   selected.  However, if items have been selected, the highlighting will
+ *   be slightly difference in appearance.  This state can be changed later
+ *   using OptiMenu.setSelectedPlusHoverState().
+ *
+ */
 function OptiMenu(menuCntnr, win, selectedPlusHover) {
   this.window = win;
   this.menuCntnr = menuCntnr;
@@ -63,22 +128,14 @@ OptiMenu.prototype = {
     this.window.addEventListener("resize", this);
     this.menuCntnr.addEventListener("overflow", this);
     this.menuCntnr.addEventListener("underflow", this);
+    this.menuCntnr.addEventListener("wheel", this, true);
+    this.menuCntnr.addEventListener("scroll", this, true);
 
     let dragFeedback = document.createElement("div");
     dragFeedback.id = "opti_dragfeedback";
     // TODO: append to menuCntnr?
     this.window.document.body.appendChild(dragFeedback);
     this.dragDrop.dragFeedback = dragFeedback;
-
-    let optiM = this;
-    this.menuCntnr.addEventListener("wheel", function(e) {
-      e.preventDefault();
-      let mult = optiM.wheelScrollDistance;
-      optiM.menuCntnr.scrollTop = optiM.menuCntnr.scrollTop + (e.deltaY * mult);
-    }, true);
-    this.menuCntnr.addEventListener("scroll", function(e) {
-      optiM.psuedoScroll(optiM.menuCntnr.scrollTop);
-    }, true);
 
     let style1 = document.getElementById("optimenu_dynamic_css_menu_dimensions");
     if (!style1) {
@@ -236,6 +293,8 @@ OptiMenu.prototype = {
   },
 
   updateMenu(_currentMenuData, deepClone) {
+//dump("XXX : updateMenu\n");
+//try { lk.lk } catch(e) { dump("XXX : "+e.stack.replace(/\n/gm, "\nXXX : ")+"\n"); }
     // Update _currentMenuData.
 
     // We have the option of a deepClone; while it takes longer, may be more
@@ -309,6 +368,13 @@ OptiMenu.prototype = {
         index++;
       }
     }
+
+    let _this = this;
+    setTimeout(() => {
+      for (let i = 1; i < 10; i++) {
+        let menuitem = nodes[i];
+      }
+    }, 3000)
   },
 
   setMenuitemProperties(menuitem, data, currentMenuDataIndex) {
@@ -320,7 +386,8 @@ OptiMenu.prototype = {
     menuitem.currentMenuDataIndex = currentMenuDataIndex;
 
     menuitem.opti_menutext.innerHTML = data.menutextstr;
-
+    
+    // Initialize className.
     menuitem.className = "opti_menuitem";
 
     if (data.menuiconurl1) {
@@ -328,6 +395,7 @@ OptiMenu.prototype = {
     } else {
       menuitem.opti_menuicon1.removeAttribute("src");
     }
+    
     if (data.noPrefixIcon) {
       menuitem.classList.add("opti_menuitem_icon1_hide");
     }
@@ -349,6 +417,14 @@ OptiMenu.prototype = {
 
     // USER DEFINED
     if (data.userDefined) {
+      // TODO: userDefined properties get set on menuitems directly, thus there
+      // is no clean way to remove a previously set property if it does not exist
+      // in data.userDefined, because we use other properties that are not
+      // userDefined internally.  We should espouse userDefined properties in an
+      // object userDefined (or maybe the inverse), where we can easily distinguish
+      // and clear all userDefined properties everytime and start afresh.
+      // This of course will affect all code which is currently sniffing for
+      // userDefined properties on menuitems.
       let { properties, attributes, classes } = data.userDefined;
       if (properties) {
         for (let name in properties) {
@@ -377,10 +453,11 @@ OptiMenu.prototype = {
   },
 
   psuedoScroll(scrollPos, forceRefresh) {
-    // TODO : Not sure if we're handling forceRefresh without introducing a bug.
-    if (scrollPos > this.currentMenuMaxScroll && !forceRefresh) {
-      return;
-    }
+    // TODO : Not sure why we checked currentMenuMaxScroll here but it is
+    // introducing a bug.
+    //if (scrollPos > this.currentMenuMaxScroll && !forceRefresh) {
+    //  return;
+    //}
 
     let index = Math.floor(scrollPos / this.miHeight);
 
@@ -682,7 +759,6 @@ e.menuitem = menuitem;
     if (this.frozenHoveredItem) {
       this.menuCntnr.classList.add("opti_menufrozen");
       this.frozenHoveredItem.classList.add("opti_frozen_menuitem");
-
     }
     return this.frozenHoveredItem.currentMenuDataIndex;
   },
@@ -697,6 +773,14 @@ e.menuitem = menuitem;
     } else {
       this.menuCntnr.classList.add("opti_isselectedplushover");
     }
+  },
+
+  getScrollPosition() {
+    return this.menuCntnr.scrollTop;
+  },
+
+  setScrollPosition(scrollPos) {
+    this.menuCntnr.scrollTop = scrollPos;
   },
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -837,6 +921,34 @@ e.menuitem = menuitem;
         if (target == this.menuCntnr) {
           this.updateMenuitemDims();
         }
+        break;
+      case "wheel":
+        // With mousewheel, we take over and scroll one menuitem at a time.
+        // If the clientHeight of the menu is not an even multiple of the
+        // menuitem height, logic is implemented to always keep top menuitem
+        // justified with top of menu, whether scrolling up or down.
+        e.preventDefault();
+
+        let menuCntnr = this.menuCntnr;
+
+        if (menuCntnr.scrollHeight <= this.menuCntnr.clientHeight) {
+          return;
+        }
+
+        let mult = this.wheelScrollDistance;
+      
+        let upFromMaxScroll = (e.deltaY < 0) &&
+                              (menuCntnr.scrollHeight - this.menuCntnr.clientHeight == menuCntnr.scrollTop);
+      
+        let offset = 0;
+        if (upFromMaxScroll) {
+          // TODO: don't understand why we have to subtract 1 here.
+          offset = (menuCntnr.clientHeight % mult) - 1;
+        }
+        this.menuCntnr.scrollTop = this.menuCntnr.scrollTop + (e.deltaY * mult) + offset;      
+        break;
+      case "scroll":
+        this.psuedoScroll(this.menuCntnr.scrollTop);
         break;
     }
   },

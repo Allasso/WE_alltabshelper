@@ -25,7 +25,6 @@ DragScrollAssistant.prototype = {
   scrollTimerID: null,
 
   scrollDown(e) {
-dump("scrollDown : "+e.type+"    "+this.inhibit+"\n");
     if (!this.inhibit) {
       if (e.type == "mouseenter") {
         let _this = this;
@@ -39,7 +38,6 @@ dump("scrollDown : "+e.type+"    "+this.inhibit+"\n");
   },
 
   scrollUp(e) {
-dump("scrollUp : "+e.type+"    "+this.inhibit+"\n");
     if (!this.inhibit) {
       if (e.type == "mouseenter") {
         let _this = this;

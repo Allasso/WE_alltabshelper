@@ -10,6 +10,9 @@ const topHoverDetector = document.getElementById('tophoverdetector');
 const messageContainer = document.getElementById('message');
 const bottomHoverDetector = document.getElementById('bottomhoverdetector');
 const contextMenuContainer = document.getElementById('contextmenu');
+const tabsCountContainer = document.getElementById('tabscount');
+const pinnedTabsOverlayContainer = document.getElementById('pinnedtabsoverlay');
+
 const LOADING_FAVICON_URL = "../icons/loading.png";
 const CLOSE_BUTTON_URL = "../icons/button_close_12.png";
 
@@ -19,12 +22,10 @@ let CURRENT_TABS_HASH = {};
 let CURRENT_TABS_LIST = [];
 let CURRENT_MENU_DATA = [];
 let OPTI_MENU;
+let PINNED_TABS_OVERLAY;
 let DRAG_SCROLL_ASSISTANT;
 let THIS_WINDOW_ID;
-
-let globals = {
-  tabsRecentIdsArr: [],
-};
+let FAYT = false;
 
 let main = {
   titlebarHeight: 24,
@@ -63,9 +64,6 @@ let main = {
     this.isResizeTimerRunning = false;
   },
 
-  /* END TODO ***************/
-  /**************************/
-
   async initializePanelDims() {
     let storage = await browser.storage.local.get("alltabshelper:panel_dims");
     let panelDimsStr = storage["alltabshelper:panel_dims"];
@@ -76,6 +74,9 @@ let main = {
     }
     this.recordPanelContentsDims(true);
   },
+
+  /* END TODO ***************/
+  /**************************/
 
   getActiveTab() {
     return browser.tabs.query({ currentWindow: true, active: true });
@@ -93,24 +94,31 @@ let main = {
       THIS_WINDOW_ID = winData.id;
     }
 
-    let recentTabsState = BPW.getRecentTabsState(THIS_WINDOW_ID);
-    globals.tabsRecentIdsArr = JSON.parse(recentTabsState);
-
     manage.initManage();
     main.initializePanelDims();
 
-    // Initialize recent tabs data and initialize tabs.lastActivatedTabId
+    // Initialize recent tabs data
     // with the currently active tab.
     let tabData = await main.getActiveTab();
     let activeTabId = tabData[0].id;
     tabs.updateTabsRecent(activeTabId);
-    tabs.lastActivatedTabId = activeTabId;
-
+    
     window.addEventListener("resize", main.onResize);
+
+    // Stop-gap workaround for bug 1398625 (beforeunload event not fired for
+    // browserAction popup), otherwise we would just grab the value on closing
+    // of the menu.
+    tabsMenuCntnr.addEventListener("scroll", (e) => {
+      if (menuModes.menuMode === 0) {
+        BPG.allTabsMenuScrollPos = OPTI_MENU.getScrollPosition();
+      } else if (menuModes.menuMode == 3) {
+        BPG.searchMenuScrollPos = OPTI_MENU.getScrollPosition();
+      }
+    });
   },
 
   async handlePanelBeforeunload() {
-    BPW.recordRecentTabsState(THIS_WINDOW_ID, JSON.stringify(globals.tabsRecentIdsArr));
+dump("XXX : handlePanelBeforeunload\n");
   },
 }
 
