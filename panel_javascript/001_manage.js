@@ -95,9 +95,6 @@ let manage = {
   contextmenuShowingListener() {
     let selected = OPTI_MENU.getSelectedMenuData();
     let hasSelected = !!selected.length
-    //if (!hasSelected) {
-      let item = OPTI_MENU.freezeHoveredItem();
-    //}
     manage.contextMenu.setDisabled({ "close_selected_tabs": !hasSelected,
                                      "discard_selected_tabs": !hasSelected,
                                      "move_selected_tabs": !hasSelected,
