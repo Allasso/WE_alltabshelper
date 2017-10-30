@@ -3,7 +3,11 @@ let textRetriever = {
     function getframes(win, frameList) {
       for (var i = 0; win.frames && i < win.frames.length; i++) {
         let frame = win.frames[i];
-        if (!frame || !frame.document || !frame.frameElement) {
+        try {
+          if (!frame || !frame.document || !frame.frameElement) {
+            continue;
+          }
+        } catch (e) {
           continue;
         }
         frameList.push(frame);
@@ -243,6 +247,7 @@ let localHighlighter = {
 
 browser.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
+try {
     let topic = request.topic;
     let tabId = request.tabId;
     if (topic == "alltabshelper:getTabContentText") {
@@ -259,6 +264,9 @@ browser.runtime.onMessage.addListener(
     if (topic == "alltabshelper:clearCustomHighlighting") {
       localHighlighter.clearCustomHighlighting();
     }
+} catch (e) {
+  dump("XXX : ERROR find_utils.js : "+e+"    line number : "+e.lineNumber+"\n");
+}
   }
 );
 

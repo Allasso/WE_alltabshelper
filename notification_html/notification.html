@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="../notification_css/notification.css"/>
+    <title>All Tabs Helper - Options</title>
+  </head>
+
+<body>
+  <div id="heading">Ready or not, here it comes.</div>
+  <div class="par">
+    All Tabs Helper has now switched to <span class="bold">WebExtensions</span>.  Perhaps unleashed in a not-fully-ready state and admittedly a little bit buggy, it is being released now to (hopefully) be in time for the release of Firefox 57, when the legacy version will stop working altogether.
+  </div>
+  <div class="par bold">
+    Usage
+  </div>
+  <div class="par">
+    All Tabs Helper can be accessed two ways, as before.  By using a drop-down menu, or viewing in the sidebar.  These are implemented a little differently however.
+  </div>
+  <div class="par">
+    <span class="bold">Drop-down</span>: Rather than clicking on the "All tabs" button as before, you will now need to click on the All Tabs Helper toolbar button (The "A" icon) for the menu to appear.
+  </div>
+  <div class="par">
+    <span class="bold">Sidebar</span>: Select All Tabs Helper in View > Sidebar.
+  </div>
+  <div class="par bold">
+    What To Expect
+  </div>
+  <div class="par">
+    The new phase of All Tabs Helper will have some noticeable changes in features and implementation.  Some are intentional <span class="bold">[1]</span>, Some are a result of differences in the way WebExtensions for implements UI, some are held up by the current unavailability of an API to support them <span class="bold">[2]</span>, and some will probably never be implemented due to the fact that mozilla does not intend on providing APIs that would support the features desired.
+  </div>
+  <div class="par">
+    <span class="bold">[1]</span> With this round of ATH, I plan to keep things simple.  Hence I will not be implementing many of the custom conveniences I have in the past.  I may not even implement some features even if APIs eventually are provided to support them.  You may notice the options page strikingly stark.  I will not bother to list what conveniences or features will be missing.
+  </div>
+  <div class="par">
+    My main focus with ATH has always been to:
+  </div>
+  <div class="par">
+    Allow users to operate on tabs from a vertical menu.<br />
+    Allow closing and moving of multiple tabs.<br />
+    Filter tabs by title/url.<br />
+    Quickly find duplicate tabs.<br />
+    List tabs in order of the most recently accessed.<br />
+    Anything more than that is a bonus.
+  </div>
+  <div class="par">
+    <span class="bold">[2]</span> There are plans to **possibly** implement the following familiar features if APIs become available:
+  </div>
+  <div class="par">
+    <span class="bold">Open new tab next to current</span>:  Mozilla bug 1344749 (https://bugzilla.mozilla.org/show_bug.cgi?id=1344749).  Note that it is possible this feature will be introduced as a Firefox browser preference, which will negate the need of having this as an ATH feature.
+  </div>
+  <div class="par">
+    <span class="bold">Unload tab(s)</span>:  Mozilla bug 1322485 (https://bugzilla.mozilla.org/show_bug.cgi?id=1322485).  This bug has landed in FF 58, and should be available in that release.  Note that this feature only works on multi-process tabs.
+  </div>
+  <div class="par">
+    <span class="bold">Search tabs content</span>:  This feature is currently available though in a fledgling state.  Expect some bugs, particularly if searching complex pages with frames.  PDFs are presently not searchable using this feature.  Maybe improvements will come in the future, maybe not.  This feature is after all, outside the scope mentioned in <span class="bold">[1]</span>.
+  </div>
+  <div class="par bold">
+    My View on What Mozilla is Doing
+  </div>
+  <div class="par">
+    I would like to say that I fully support Mozilla's decision to switch to WebExtensions.  This has been a hot and heavy debate among users and addon developers, and I refrain from going into detail here.  But I honestly believe that it is a carefully thought-out decision, and not simply Mozilla trying to imitate Chrome, as many assert.  All in all I see it as a move forward that in the longrun will be a great improvement.  It may not be obvious to users (or even addon devs) the benefits of secure browsing and future development of the Firefox web browser gained by creating an API driven environment for addons.  Sometimes an unruly tree must be pruned in order to eventually result in a more flourishing and fruitful one, and that pruning can be painful for a time.
+  </div>
+</body>
+
+</html>

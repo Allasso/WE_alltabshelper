@@ -326,7 +326,12 @@ let search = {
   async findAndHighlight(tabId, rangeIndex) {
     let includeRangeData = false;
     let hlmode = BPG.findHighlightingMode;
-    let includeRectData = hlmode != 1;
+    
+    // TODO: For now we are doing findBarTweakAnimate in all circumstances
+    //let includeRectData = hlmode != 1;
+    let includeRectData = true;
+    
+    
 
     if (hlmode == 3) {
       await browser.tabs.sendMessage(tabId, { topic: "alltabshelper:clearCustomHighlighting" });
@@ -354,10 +359,16 @@ let search = {
       });
     }
     if (includeRectData) {
-      let topic = hlmode == 4 ? "alltabshelper:findBarTweakAnimate" : "alltabshelper:setCustomHighlighting";
+      let topic = hlmode == 4 || hlmode == 1 ? "alltabshelper:findBarTweakAnimate" : "alltabshelper:setCustomHighlighting";
       let overlay = hlmode == 3;
       await browser.tabs.sendMessage(tabId,
           { topic, tabId, rectData: data.rectData, currentResult: rangeIndex, overlay });
+
+      // TODO: For now we are doing findBarTweakAnimate in all circumstances
+      if (hlmode != 4) {
+        await browser.tabs.sendMessage(tabId,
+            { topic : "alltabshelper:findBarTweakAnimate", tabId, rectData: data.rectData, currentResult: rangeIndex });
+      }
     }
   },
 }

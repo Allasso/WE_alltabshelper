@@ -240,10 +240,10 @@ let manage = {
     let items = [
                   { text: "Close selected tabs", id: "close_selected_tabs" },
                   { text: "Unload selected tabs", id: "discard_selected_tabs" },
-                  { text: "Move selected tabs to", id: "move_selected_tabs" },
+                  { text: "Move selected tabs here", id: "move_selected_tabs" },
                   { menuseparator: true },
                   { text: "Record selected tabs for moving", id: "cut_selected_tabs" },
-                  { text: "Move recorded tabs to", id: "paste_cut_tabs" },
+                  { text: "Move recorded tabs here", id: "paste_cut_tabs" },
                   { menuseparator: true },
                   { text: "Open preferences", id: "open_preferences" },
                   ];
