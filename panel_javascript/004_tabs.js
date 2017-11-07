@@ -44,7 +44,8 @@ let tabs = {
             doRefreshCurrentMenu,
             doUpdateMenu,
             doUpdateTabsCount,
-            typeUpdateTabsRecent } = tasks;
+            typeUpdateTabsRecent,
+            ensureTabIsVisible } = tasks;
 
       // Set flag(s)
 
@@ -59,6 +60,9 @@ let tabs = {
       }
       if (doUpdateTabsCount) {
         this.tasksUpdateMenuGate.flagUpdateTabsCount = true;
+      }
+      if (ensureTabIsVisible) {
+        this.tasksUpdateMenuGate.flagEnsureTabIsVisible = ensureTabIsVisible;
       }
 
       if (!fireImmediately) {
@@ -82,7 +86,8 @@ let tabs = {
     let { flagUpdateCurrentTabsData,
           flagRefreshCurrentMenu,
           flagUpdateMenu,
-          flagUpdateTabsCount } = this.tasksUpdateMenuGate;
+          flagUpdateTabsCount,
+          flagEnsureTabIsVisible } = this.tasksUpdateMenuGate;
 
     // If we need to update current tabs data, we must do that before any menu updates.
     if (flagUpdateCurrentTabsData) {
@@ -98,6 +103,10 @@ let tabs = {
       menuModes.refreshCurrentMenu();
     } else if (flagUpdateMenu) {
       OPTI_MENU.updateMenu(manage.sanitizeMenuTextInCurrentMenuData(CURRENT_MENU_DATA));
+    }
+
+    if (flagEnsureTabIsVisible) {
+      manage.ensureTabIsVisible(flagEnsureTabIsVisible);
     }
   },
 
@@ -124,7 +133,8 @@ let tabs = {
     let tasks = { doRefreshCurrentMenu: menuModes.menuMode == 1,
                   doUpdateMenu: menuModes.menuMode != 1,
                   doUpdateTabsCount: true,
-                  typeUpdateTabsRecent: false };
+                  typeUpdateTabsRecent: false,
+                  ensureTabIsVisible: tabId };
 
     tabs.updateUIAccumulator({ tasks, tabId, fireImmediately });
 
@@ -277,6 +287,16 @@ let tabs = {
       CURRENT_TABS_HASH[tabId].isLastStatusLoading = data.status == "loading";
     }
 
+    if ("discarded" in data) {
+      // Explicitly update the tabs hash discarded class.
+      CURRENT_TABS_HASH[tabId].userDefined.classes.tabdiscarded = data.discarded;
+
+      // TODO: use OPTI_MENU.updateSingleMenuItem - but accumulate since many tabs
+      // might get suspended at once.
+      let tasks = { doRefreshCurrentMenu: true };
+      tabs.updateUIAccumulator({ tasks, tabId })
+    }
+
     // Don't update for this, just keep track.
     if ("favIconUrl" in data) {
       CURRENT_TABS_HASH[tabId].lastFavIconUrl = data.favIconUrl;
@@ -407,7 +427,10 @@ let tabs = {
    *  tabIds : list of tab ids correlating to tabs to discard
    */
   async discardSelectedTabs(tabIds) {
-    browser.expsessionstore.discardTabs(tabIds);
+    // browser.tabs.discard won't be available until 58.
+    if ("discard" in browser.tabs) {
+      browser.tabs.discard(tabIds);
+    }
   },
 
   /**
@@ -419,6 +442,8 @@ let tabs = {
     this.moveTabs(tabIds, targetTabId);
   },
 
+  recordedTabIds: [],
+  
   /**
    *  Cut selected tabs.
    *
@@ -426,7 +451,12 @@ let tabs = {
    *  in a list to be moved.
    */
   async cutSelectedTabs(tabIds) {
-    BPW.recordTabIds(JSON.stringify({ windowId: THIS_WINDOW_ID, tabIds }));
+    // Private windows can only operate within window.
+    if (BPW) {
+      BPW.recordTabIds(JSON.stringify({ windowId: THIS_WINDOW_ID, tabIds }));
+    } else {
+      this.recordedTabIds = tabIds.slice();
+    }
   },
 
   /**
@@ -435,12 +465,25 @@ let tabs = {
    *  Move tabs from "cut" list to just after the hovered tab position.
    */
   async pasteCutTabs(index) {
-    let { windowId, tabIds } = JSON.parse(BPW.getRecordedTabIds());
+    let windowId;
+    let tabIds;
+    
+    // Private windows can only operate within window.
+    if (BPW) {
+      let tabIdsData = JSON.parse(BPW.getRecordedTabIds());
+      windowId = tabIdsData.windowId;
+      tabIds = tabIdsData.tabIds;
+      BPW.recordTabIds();
+    } else {
+      windowId = THIS_WINDOW_ID;
+      tabIds = this.recordedTabIds;
+    }
 
     if (!tabIds || ! tabIds.length) {
       return;
     }
 
     this.moveTabs(tabIds, index, windowId);
+    this.recordedTabIds = [];
   },
 }

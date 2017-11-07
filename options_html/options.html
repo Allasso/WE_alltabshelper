@@ -17,11 +17,10 @@
     <input id="pref_bool_tab_next_to_current" type="checkbox" />&nbsp;Open new tab next to current</input><br />
   </div>
   <div class="par" style="margin-left: 25px">
-    (Note: This feature may have unexpected UI behavior when compared to the same feature in the legacy version of this addon.
-    Namely, the tabstrip may scroll in unexpected ways in some cases.  This is due to the lack of a suitable API.  Bug 1344749* has been filed to correct this.
+    Note: This feature is a (hopefully) a temporary workaround until a suitable API* is provided.  You may experience unexpected UI behavior when compared to the same feature in the legacy version of All Tabs Helper. Namely, the tabstrip may scroll in unexpected ways in some cases.
   </div>
   <div class="par" style="margin-left: 25px">
-    *https://bugzilla.mozilla.org/show_bug.cgi?id=1344749)
+    *https://bugzilla.mozilla.org/show_bug.cgi?id=1344749
   </div>
   <div class="par">
     <input id="pref_bool_show_remaining_tabs_in_recent" type="checkbox" />&nbsp;Show remaining tabs in "recent" menu (adds a divider below the recent tabs)</input><br />
@@ -29,6 +28,23 @@
   <div class="par" style="margin-left: 25px">
     This allows for tabs from the "recent" menu to be moved by dragging from the "recent" section to the list below.
   </div>
+  <div class="par">
+    <input id="pref_bool_persist_alltabs_menu_active_tab" type="checkbox" />&nbsp;When reopening "alltabs" menu, ensure selected tab is visible</input><br />
+  </div>
+  <div class="par" style="margin-left: 25px">
+    Default scrolls menu to previous position.
+  </div>
+  <div class="par">
+    <input id="pref_bool_use_larger_menu_text" type="checkbox" />&nbsp;Use larger text in menu items (requires reload of sidebar menu if used)</input><br />
+  </div>
+  <div class="par">
+    <input id="pref_int_number_input_browser_action_popup_width" type="number"  step="10" min="200" max="600" placeholder="300"/>&nbsp;browserAction popup width in pixels (does not affect sidebar)</input><br />
+  </div>
+  <!--
+  <div class="par">
+    <input id="pref_bool_dont_show_update_notification" type="checkbox" />&nbsp;Don't show notification window* on updates (*shows critical information about updates)</input><br />
+  </div>
+  -->
 
   <script src="../options_javascript/options.js"></script>
 </body>

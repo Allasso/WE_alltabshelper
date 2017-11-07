@@ -290,7 +290,12 @@ let menuModes = {
    
     if (mode == 0) {
       this.modeChangeAll(refresh);
-      OPTI_MENU.setScrollPosition(BPG.allTabsMenuScrollPos);
+      // Always ensure selected tab is near the top.
+      if (typeof BPG.lastActivatedTabId != "undefined") {
+        let { index } = manage.getCurrentMenuDataAtTabId(BPG.lastActivatedTabId);
+        let margin = pinnedTabsOverlayContainer.childNodes.length + 3;
+        OPTI_MENU.ensureIndexIsVisible(index, margin, 0, true);
+      }
     } else if (mode == 1) {
       this.modeChangeRecent(refresh);
       tabsMenuCntnr.scrollTop = 0;

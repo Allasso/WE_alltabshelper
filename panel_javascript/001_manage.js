@@ -101,8 +101,8 @@ let manage = {
                                      "move_selected_tabs": !hasSelected,
                                      "cut_selected_tabs": !hasSelected,
                                      "paste_cut_tabs": hasSelected ||
-                                                       !BPW.getRecordedTabIds() ||
-                                                       !JSON.parse(BPW.getRecordedTabIds()).tabIds.length,
+                                                       (BPW ? (!BPW.getRecordedTabIds() || !JSON.parse(BPW.getRecordedTabIds()).tabIds.length) :
+                                                       !tabs.recordedTabIds.length),
                                   })
   },
 
@@ -206,6 +206,14 @@ let manage = {
   },
 
   sanitizeMenuTextInCurrentMenuData(currentMenuData) {
+    // TODO: this is a temporary fix for a much bigger issue,
+    // where I am trying to get rid of using innerHTML in OptiMenu.
+    // For the time being, value for menutextstr is strictly a string (even from
+    // search) and will be set in OptiMenu using textContent (not innerHTML),
+    // thus we are not using any HTML in menutextstr.
+    return currentMenuData;
+
+    /*
     let newData = [];
     let len = currentMenuData.length;
     for (let i = 0; i < len; i++) {
@@ -228,6 +236,7 @@ let manage = {
     }
     
     return newData;
+    */
   },
   
   async initTabsMenu() {
@@ -237,9 +246,11 @@ let manage = {
   },
 
   initContextMenuItems() {
-    let items = [
+    let items;
+    if ("discard" in browser.tabs) {
+      items = [
                   { text: "Close selected tabs", id: "close_selected_tabs" },
-                  { text: "Unload selected tabs", id: "discard_selected_tabs" },
+                  { text: "Suspend selected tabs", id: "discard_selected_tabs" },
                   { text: "Move selected tabs here", id: "move_selected_tabs" },
                   { menuseparator: true },
                   { text: "Record selected tabs for moving", id: "cut_selected_tabs" },
@@ -247,6 +258,17 @@ let manage = {
                   { menuseparator: true },
                   { text: "Open preferences", id: "open_preferences" },
                   ];
+    } else {
+      items = [
+                  { text: "Close selected tabs", id: "close_selected_tabs" },
+                  { text: "Move selected tabs here", id: "move_selected_tabs" },
+                  { menuseparator: true },
+                  { text: "Record selected tabs for moving", id: "cut_selected_tabs" },
+                  { text: "Move recorded tabs here", id: "paste_cut_tabs" },
+                  { menuseparator: true },
+                  { text: "Open preferences", id: "open_preferences" },
+                  ];
+    }
     this.contextMenu.addItems(items);
   },
 
@@ -264,7 +286,9 @@ let manage = {
     }
   },
 
-  initManage() {
+  async initManage() {
+    IS_BROWSER_ACTION_POPUP = !!document.getElementById("browser_action_popup_identifier");
+      
     browser.tabs.onActivated.addListener(tabs.tabsOnActivatedListener);
     browser.tabs.onCreated.addListener(tabs.tabsOnCreatedListener);
     browser.tabs.onRemoved.addListener(tabs.tabsOnRemovedListener);
@@ -281,7 +305,7 @@ let manage = {
     PINNED_TABS_OVERLAY = new PinnedTabsOverlay(pinnedTabsOverlayContainer, window);
     PINNED_TABS_OVERLAY.addActivityActionListener(this.PTOActivityActionListener);
 
-    this.initTabsMenu(false);
+    this.initTabsMenu();
 
     // Side-car assistant to scroll menu while hovering/dragging.  See
     // documentation in 029_hover_scroll_assistant.js.
@@ -296,10 +320,29 @@ let manage = {
     
     browser.storage.onChanged.addListener(this.onStorageChange);
     
-    browser.storage.local.get().then(storage => {
-      FAYT = storage["alltabshelper:pref_bool_fayt"];
-      PREF_SHOW_REMAINING_TABS_IN_RECENT = storage["alltabshelper:pref_bool_show_remaining_tabs_in_recent"];
-    });
+    let storage = await browser.storage.local.get();
+    
+    FAYT = storage["alltabshelper:pref_bool_fayt"];
+    PREF_SHOW_REMAINING_TABS_IN_RECENT = storage["alltabshelper:pref_bool_show_remaining_tabs_in_recent"];
+    PREF_PERSIST_ALLTABS_MENU_ACTIVE_TAB = storage["alltabshelper:pref_bool_persist_alltabs_menu_active_tab"];
+    
+    let customCSSText = "";
+    
+    if (IS_BROWSER_ACTION_POPUP && "alltabshelper:pref_int_number_input_browser_action_popup_width" in storage) {
+      let value = storage["alltabshelper:pref_int_number_input_browser_action_popup_width"];
+      customCSSText += "#tabsmenucontainer { width: "+value+"px; }\n";
+    }
+    
+    if (storage["alltabshelper:pref_bool_use_larger_menu_text"]) {
+      customCSSText += ".opti_menuitem > .opti_menutext { font-size: 13.5px !important; }\n";
+    }
+    
+    if (customCSSText) {
+      let styleElem = document.createElement("style");
+      styleElem.id = "dynamic_css_custom";
+      document.head.appendChild(styleElem);    
+      styleElem.textContent = customCSSText;
+    }
 
     setTimeout(() => {
       window.focus();
@@ -314,6 +357,12 @@ let manage = {
         return { index, data };
       }
     }
+  },
+
+  ensureTabIsVisible(tabId) {
+    let { index } = this.getCurrentMenuDataAtTabId(tabId);
+    let margin = pinnedTabsOverlayContainer.childNodes.length;
+    OPTI_MENU.ensureIndexIsVisible(index, margin);
   },
 }
 

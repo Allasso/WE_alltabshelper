@@ -27,6 +27,8 @@ let DRAG_SCROLL_ASSISTANT;
 let THIS_WINDOW_ID;
 let FAYT = false;
 let PREF_SHOW_REMAINING_TABS_IN_RECENT = false;
+let PREF_PERSIST_ALLTABS_MENU_ACTIVE_TAB = false;
+let IS_BROWSER_ACTION_POPUP = false;
 
 let main = {
   titlebarHeight: 24,
@@ -102,10 +104,10 @@ let main = {
     // with the currently active tab.
     let tabData = await main.getActiveTab();
     let activeTabId = tabData[0].id;
-    tabs.updateTabsRecent(activeTabId);
     
     window.addEventListener("resize", main.onResize);
 
+    // TODO: We may eliminate persisting scroll position.
     // Stop-gap workaround for bug 1398625 (beforeunload event not fired for
     // browserAction popup), otherwise we would just grab the value on closing
     // of the menu.
@@ -119,7 +121,7 @@ let main = {
   },
 
   async handlePanelBeforeunload() {
-dump("XXX : handlePanelBeforeunload\n");
+    // TODO: STUB
   },
 }
 

@@ -247,7 +247,6 @@ let localHighlighter = {
 
 browser.runtime.onMessage.addListener(
   function(request, sender, sendResponse) {
-try {
     let topic = request.topic;
     let tabId = request.tabId;
     if (topic == "alltabshelper:getTabContentText") {
@@ -264,9 +263,6 @@ try {
     if (topic == "alltabshelper:clearCustomHighlighting") {
       localHighlighter.clearCustomHighlighting();
     }
-} catch (e) {
-  dump("XXX : ERROR find_utils.js : "+e+"    line number : "+e.lineNumber+"\n");
-}
   }
 );
 

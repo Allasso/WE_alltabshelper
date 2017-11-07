@@ -98,7 +98,7 @@ html, body {
 }
 
 .searchresult {
-  background-color: #fffff0 !important;
+  background-color: #f9e79f !important;
 }
 
 .searchresultmenuitem > .opti_menuicon1 {
@@ -111,6 +111,7 @@ html, body {
 
 .searchresultkeyword {
   font-weight: bold;
+  color: #55c;
 }
 
 #bottomhoverdetector {

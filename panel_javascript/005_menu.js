@@ -293,8 +293,6 @@ OptiMenu.prototype = {
   },
 
   updateMenu(_currentMenuData, deepClone) {
-//dump("XXX : updateMenu\n");
-//try { lk.lk } catch(e) { dump("XXX : "+e.stack.replace(/\n/gm, "\nXXX : ")+"\n"); }
     // Update _currentMenuData.
 
     // We have the option of a deepClone; while it takes longer, may be more
@@ -385,7 +383,12 @@ OptiMenu.prototype = {
 
     menuitem.currentMenuDataIndex = currentMenuDataIndex;
 
-    menuitem.opti_menutext.innerHTML = data.menutextstr;
+    if (typeof data.menutextstr == "string") {
+      menuitem.opti_menutext.textContent = data.menutextstr;
+    } else {
+      menuitem.opti_menutext.textContent = "";
+      menuitem.opti_menutext.appendChild(data.menutextstr.cloneNode(true));
+    }
     
     // Initialize className.
     menuitem.className = "opti_menuitem";
@@ -498,14 +501,14 @@ OptiMenu.prototype = {
 
     let cntnrWid = this.menuCntnr.clientWidth;
 
-    let innerHTML = ".opti_menuitem { width: "+cntnrWid+"px; }\n";
-    innerHTML += ".opti_menutext { width: "+(cntnrWid - 40)+"px; }\n";
+    let textContent = ".opti_menuitem { width: "+cntnrWid+"px; }\n";
+    textContent += ".opti_menutext { width: "+(cntnrWid - 40)+"px; }\n";
 
-    innerHTML += ".opti_menuitem_icon1_hide > .opti_menutext { width: "+(cntnrWid - 27)+"px; }\n";
-    innerHTML += ".opti_menuitem_icon2_hide > .opti_menutext { width: "+(cntnrWid - 27)+"px; }\n";
-    innerHTML += ".opti_menuitem_icon1_hide.opti_menuitem_icon2_hide > .opti_menutext { width: "+(cntnrWid - 12)+"px; }\n";
+    textContent += ".opti_menuitem_icon1_hide > .opti_menutext { width: "+(cntnrWid - 27)+"px; }\n";
+    textContent += ".opti_menuitem_icon2_hide > .opti_menutext { width: "+(cntnrWid - 27)+"px; }\n";
+    textContent += ".opti_menuitem_icon1_hide.opti_menuitem_icon2_hide > .opti_menutext { width: "+(cntnrWid - 12)+"px; }\n";
 
-    this.dynamicCSS1.innerHTML = innerHTML;
+    this.dynamicCSS1.textContent = textContent;
   },
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -749,7 +752,7 @@ e.menuitem = menuitem;
   frozenHoveredItem: null,
 
   freezeHoveredItem(unfreeze) {
-    if (unfreeze) {
+    if (unfreeze && this.frozenHoveredItem) {
       this.menuCntnr.classList.remove("opti_menufrozen");
       this.frozenHoveredItem.classList.remove("opti_frozen_menuitem");
       this.frozenHoveredItem = null;
@@ -760,7 +763,6 @@ e.menuitem = menuitem;
       this.menuCntnr.classList.add("opti_menufrozen");
       this.frozenHoveredItem.classList.add("opti_frozen_menuitem");
     }
-    return this.frozenHoveredItem.currentMenuDataIndex;
   },
 
   getFrozenHoveredItemIndex() {
@@ -781,6 +783,43 @@ e.menuitem = menuitem;
 
   setScrollPosition(scrollPos) {
     this.menuCntnr.scrollTop = scrollPos;
+  },
+
+  /*
+   * ensureIndexIsVisible
+   *
+   * If index is not visible, scrolls the menu just enough to bring the index
+   * into visibility, whether at the top or bottom, whichever is nearest.
+   *
+   * @param index number - the index to ensure visibility
+   * @param topMargin number - rather than just bringing the index into visiblity
+   *                           at the very top of the menu, will ensure it is at
+   *                           least topMargin number of indices below that.
+   * @param bottomMargin number - rather than just bringing the index into visiblity
+   *                              at the very bottom of the menu, will ensure it is at
+   *                              least bottomMargin number of indices above that.
+   * @param forceToTop boolean - force to the top of menu, regardless of where
+   *                             index currently is.
+   */
+  ensureIndexIsVisible(index, topMargin = 0, bottomMargin = 0, forceToTop) {
+    let currentScrollTop = this.menuCntnr.scrollTop;
+    let { height } = this.menuCntnr.getBoundingClientRect();
+
+    let indexPixels = index * this.miHeight;
+    let topMarginPixels = topMargin * this.miHeight;
+    
+    if (forceToTop || indexPixels < currentScrollTop + topMarginPixels) {
+      this.menuCntnr.scrollTop = indexPixels - topMarginPixels;
+      return;
+    }
+
+    let scrollHeight = height - this.miHeight;
+    let bottomMarginPixels = bottomMargin * this.miHeight;
+
+    if (indexPixels > (currentScrollTop + scrollHeight) - bottomMarginPixels) {
+      this.menuCntnr.scrollTop = indexPixels - scrollHeight;
+      return;
+    }
   },
 
 ///////////////////////////////////////////////////////////////////////////////

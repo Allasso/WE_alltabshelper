@@ -132,13 +132,18 @@ browser.commands.onCommand.addListener(async function(command) {
   }
 });
 
-let createData = {
-  url: "../notification_html/notification.html",
-  type: "popup",
-  width: 600,
-  height: 450,
-  left: 0,
-  top: 0,
-};
-browser.windows.create(createData);
+function onInstalled(details) {
+  if (details.reason == "install" || details.reason == "update") {
+    let createData = {
+    url: "../notification_html/notification.html",
+    type: "popup",
+    width: 600,
+    height: 450,
+    left: 0,
+    top: 0,
+    };
+    browser.windows.create(createData);
+  }
+}
 
+browser.runtime.onInstalled.addListener(onInstalled);

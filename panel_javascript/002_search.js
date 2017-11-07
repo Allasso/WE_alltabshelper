@@ -215,15 +215,22 @@ let search = {
 
     for (let i = 0; i < len; i++) {
       let result = resultList[i];
-      // Wrap query string with span tag for styling.  HTML syntax is encoded
-      // so sanitizer won't sanitize but instead replace with appropriate syntax.
-      // opti_menuitem_descendent class ensures that mouse events will be
-      // associated with menuitem mouse events in OptiMenu.
-      let resultHTML = result[0]+
-                       "HTMLLESSTHANspan class='searchresultkeyword opti_menuitem_descendent'HTMLGREATERTHAN"+
-                       result[1]+
-                       "HTMLLESSTHAN/spanHTMLGREATERTHAN"+
-                       result[2];
+      // Wrap query string with span tag for styling.  opti_menuitem_descendent
+      // class ensures that mouse events will be associated with menuitem mouse
+      // events in OptiMenu.
+      let resultHTML = document.createDocumentFragment();
+
+      let text0 = document.createTextNode(result[0]);
+      resultHTML.appendChild(text0);
+
+      let span = document.createElement("span");
+      span.className = "searchresultkeyword opti_menuitem_descendent";
+      span.textContent = result[1];
+      resultHTML.appendChild(span);
+
+      let text2 = document.createTextNode(result[2]);      
+      resultHTML.appendChild(text2);
+            
       results.push(this.defineSearchResultMenuitemProperties(resultHTML, tabId, i))
     }
 

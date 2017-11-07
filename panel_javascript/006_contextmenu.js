@@ -51,9 +51,8 @@ ContextMenu.prototype = {
     x = Math.min(x, this.window.innerWidth - mRect.width);
     y = Math.min(y, this.window.innerHeight - mRect.height);
 
-    let innerHTML = ".contextmenu_outer_container { left: "+x+"px; top: "+y+"px }\n";
-
-    this.dynamicCSSDisplayPosition.innerHTML = innerHTML;
+    this.dynamicCSSDisplayPosition.textContent =
+      ".contextmenu_outer_container { left: "+x+"px; top: "+y+"px }\n";
   },
 
   loadContextMenu() {
